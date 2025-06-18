@@ -1,0 +1,351 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum PurchaseStatus {
+  PENDING
+  ACTIVE
+  CANCELLED
+  DECLINED
+  EXPIRED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  PAST_DUE
+  EXPIRED
+  TRIAL
+  FROZEN
+}
+
+enum BillingInterval {
+  MONTHLY
+  ANNUAL
+  EVERY_30_DAYS
+}
+
+enum CouponType {
+  FIXED
+  PERCENTAGE
+}
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  password        String?
+  firstName       String?
+  lastName        String?
+  avatar          String?
+  emailVerifiedAt DateTime?
+  role            Role      @default(USER)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  shops            Shop[]
+  subscriptions    Subscription[]
+  oneTimePurchases OneTimePurchase[]
+  usageCharges     UsageCharge[]
+  couponUsages     CouponUsage[]
+  userActivities   UserActivity[]
+
+  @@map("users")
+}
+
+model Session {
+  id            String    @id @default(uuid())
+  shop          String
+  state         String
+  accessToken   String
+  scope         String?
+  isOnline      Boolean   @default(false)
+  expires       DateTime?
+  userId        String?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean   @default(false)
+  emailVerified Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Foreign Keys
+  shopId String?
+
+  // Relations
+  shopModel Shop? @relation(fields: [shopId], references: [id])
+
+  @@index([shop])
+  @@index([expires])
+  @@map("sessions")
+}
+
+model Shop {
+  id        String   @id @default(uuid())
+  shop      String   @unique
+  isActive  Boolean  @default(true)
+  shopData  Json?
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Foreign Keys
+  userId String
+
+  // Relations
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions         Session[]
+  subscriptions    Subscription[]
+  oneTimePurchases OneTimePurchase[]
+  usageCharges     UsageCharge[]
+  couponUsages     CouponUsage[]
+  userActivities   UserActivity[]
+
+  @@index([userId])
+  @@index([shop, isActive])
+  @@map("shops")
+}
+
+model Plan {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String
+  features    String[]
+
+  // One-time pricing
+  oneTimePrice Decimal? @db.Decimal(10, 2)
+
+  // Subscription pricing
+  monthlyPrice   Decimal? @db.Decimal(10, 2)
+  yearlyPrice    Decimal? @db.Decimal(10, 2)
+  yearlyDiscount Decimal? @db.Decimal(10, 2) // Percentage
+
+  // Usage-based pricing
+  usagePrice Decimal? @db.Decimal(10, 4) // Per unit price
+  usageCap   Decimal? @db.Decimal(10, 2) // Maximum charge
+  usageTerms String? // Description of usage terms
+
+  isFeatured Boolean  @default(false)
+  isFree     Boolean  @default(false)
+  trialDays  Int      @default(0)
+  credits    Int?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  subscriptions    Subscription[]
+  oneTimePurchases OneTimePurchase[]
+  usageCharges     UsageCharge[]
+
+  @@map("plans")
+}
+
+// One-time purchases (AppPurchaseOneTime in GraphQL)
+model OneTimePurchase {
+  id       String         @id @default(uuid())
+  name     String
+  status   PurchaseStatus @default(PENDING)
+  price    Decimal        @db.Decimal(10, 2)
+  currency String         @default("USD")
+
+  // Shopify IDs
+  shopifyId String? @unique // For GraphQL AppPurchaseOneTime.id
+
+  isTest      Boolean   @default(false)
+  activatedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Foreign Keys
+  userId String
+  shopId String
+  planId String?
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id])
+  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  plan         Plan?         @relation(fields: [planId], references: [id])
+  couponUsages CouponUsage[]
+
+  @@index([status])
+  @@index([shopId])
+  @@map("one_time_purchases")
+}
+
+// Recurring subscriptions (AppSubscription in GraphQL)
+model Subscription {
+  id     String             @id @default(uuid())
+  name   String
+  status SubscriptionStatus @default(TRIAL)
+
+  // Pricing
+  price    Decimal         @db.Decimal(10, 2)
+  currency String          @default("USD")
+  interval BillingInterval @default(MONTHLY)
+
+  // Trial
+  trialDays   Int?
+  trialEndsAt DateTime?
+
+  // Billing periods
+  currentPeriodStart DateTime  @default(now())
+  currentPeriodEnd   DateTime?
+
+  // Shopify IDs
+  shopifyId String? @unique // For GraphQL AppSubscription.id
+
+  isTest    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Foreign Keys
+  userId String
+  shopId String
+  planId String?
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id])
+  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  plan         Plan?         @relation(fields: [planId], references: [id])
+  usageCharges UsageCharge[]
+  couponUsages CouponUsage[]
+
+  @@index([status])
+  @@index([shopId])
+  @@index([currentPeriodEnd])
+  @@map("subscriptions")
+}
+
+// Usage-based charges (AppUsageRecord in GraphQL)
+model UsageCharge {
+  id          String  @id @default(uuid())
+  description String
+  price       Decimal @db.Decimal(10, 2)
+  quantity    Int     @default(1)
+  currency    String  @default("USD")
+
+  // Shopify IDs
+  shopifyId String? @unique // For GraphQL AppUsageRecord.id
+
+  isTest    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Foreign Keys
+  userId         String // @TODO: remove this id
+  shopId         String
+  planId         String? // Nullable - for standalone usage charges not tied to plans
+  subscriptionId String? // Usage charges can be standalone or tied to subscriptions
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id])
+  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  plan         Plan?         @relation(fields: [planId], references: [id])
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+  couponUsages  CouponUsage[]
+
+  @@index([shopId])
+  @@index([subscriptionId])
+  @@index([planId])
+  @@index([createdAt])
+  @@map("usage_charges")
+}
+
+model Coupon {
+  id              String     @id @default(uuid())
+  name            String
+  code            String     @unique
+  type            CouponType
+  discountAmount  Decimal?   @db.Decimal(10, 2)
+  percentage      Decimal?   @db.Decimal(5, 2)
+  usageLimit      Int?
+  userUsageLimit  Int?       @default(1)
+  expiresAt       DateTime?
+  applicablePlans String[]   @default([])
+
+  // Billing type compatibility
+  allowOneTime      Boolean @default(true)
+  allowSubscription Boolean @default(true)
+  allowUsageBased   Boolean @default(false)
+
+  yearlyApplicable Boolean  @default(false)
+  active           Boolean  @default(true)
+  durationLimit    Int      @default(1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  couponUsages CouponUsage[]
+
+  @@index([code])
+  @@index([active, expiresAt])
+  @@map("coupons")
+}
+
+model CouponUsage {
+  id     String    @id @default(uuid())
+  shop   String
+  usedAt DateTime?
+
+  // Link to different billing types
+  oneTimePurchaseId String?
+  subscriptionId    String?
+  usageChargeId     String?
+
+  // Foreign Keys
+  couponId String
+  userId   String
+
+  // Relations
+  coupon          Coupon           @relation(fields: [couponId], references: [id])
+  user            User             @relation(fields: [userId], references: [id])
+  shopModel       Shop             @relation(fields: [shop], references: [shop])
+  oneTimePurchase OneTimePurchase? @relation(fields: [oneTimePurchaseId], references: [id])
+  subscription    Subscription?    @relation(fields: [subscriptionId], references: [id])
+  usageCharge     UsageCharge?     @relation(fields: [usageChargeId], references: [id])
+
+  @@unique([couponId, userId, shop])
+  @@map("coupon_usages")
+}
+
+model UserActivity {
+  id           String   @id @default(uuid())
+  activityType String
+  title        String
+  details      String
+  ipAddress    String?
+  userAgent    String?
+  location     String?
+  domain       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Foreign Keys
+  userId String?
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  shop Shop  @relation(fields: [domain], references: [shop])
+
+  @@index([domain])
+  @@index([activityType])
+  @@index([createdAt])
+  @@map("user_activities")
+}

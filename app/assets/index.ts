@@ -1,0 +1,10 @@
+export { default as notFoundImage } from "./images/empty-state.svg";
+export { default as trophyImage } from "./images/home-trophy.png";
+export { default as promoCode } from "./images/promo-code.svg";
+export { default as Bg1 } from "./images/bg-1.jpg";
+export { default as Bg2 } from "./images/bg-2.jpg";
+export { default as Bg3 } from "./images/bg-3.jpg";
+export { default as Bg4 } from "./images/bg-4.jpg";
+export { default as ShopiFastLogo } from "./images/shopifast-icon.png";
+export { default as ShopiFast } from "./images/shopifast.png";
+export { default as Shopify } from "./images/shopify.png";

@@ -1,0 +1,30 @@
+.accordion {
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  width: 100%;
+}
+
+.accordionActive,
+.accordion:hover {
+  background-color: #f4f4f4;
+}
+
+.accordionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.iconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.accordionContent {
+  padding-top: 12px;
+  line-height: 1.5;
+}

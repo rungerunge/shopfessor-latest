@@ -1,0 +1,37 @@
+/**
+ * ⚙️ Worker Initialization
+ *
+ * 📝 Description:
+ * Registers all background job processors for the queue system.
+ * This function should be called once during server startup to ensure
+ * all workers are ready to process incoming jobs.
+ *
+ * 🧩 Workers Registered:
+ * - 📧 send-email → processEmailJob
+ * - 🖼️ process-image → processImageJob
+ * - 📊 generate-report → inline report generator
+ *
+ * 🚀 Usage:
+ * initializeWorkers();
+ */
+
+import { queueManager } from "./queue-manager.server";
+import { processEmailJob } from "app/queues/processors/email.server";
+import { processImageJob } from "app/queues/processors/image.server";
+
+// Initialize workers (call this in your server startup)
+export function initializeWorkers() {
+  // Email worker
+  queueManager.createWorker("send-email", processEmailJob);
+
+  // Image processing worker
+  queueManager.createWorker("process-image", processImageJob);
+
+  // Report generation worker
+  queueManager.createWorker("generate-report", async (job) => {
+    const { userId, reportType } = job.data;
+    console.log(`Generating ${reportType} report for user ${userId}`);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    console.log("Report generated successfully");
+  });
+}

@@ -1,0 +1,48 @@
+services:
+  postgres:
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_DB=shopifast
+      - POSTGRES_USER=default
+      - POSTGRES_PASSWORD=secret
+    image: postgres:13.3
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - "8000:8080"
+    depends_on:
+      - postgres
+
+  mailtrap:
+    image: maildev/maildev
+    container_name: mailtrap
+    ports:
+      - "1080:1080"
+      - "1025:1025"
+    environment:
+      - MAILDEV_INCOMING_USER=
+      - MAILDEV_INCOMING_PASS=
+
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redisinsight
+    ports:
+      - "5540:5540"
+    restart: always
+    depends_on:
+      - redis
+
+volumes:
+  postgres_data:
