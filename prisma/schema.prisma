@@ -259,7 +259,7 @@ model UsageCharge {
   shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
   plan         Plan?         @relation(fields: [planId], references: [id])
   subscription Subscription? @relation(fields: [subscriptionId], references: [id])
-  couponUsages  CouponUsage[]
+  couponUsages CouponUsage[]
 
   @@index([shopId])
   @@index([subscriptionId])
@@ -348,4 +348,75 @@ model UserActivity {
   @@index([activityType])
   @@index([createdAt])
   @@map("user_activities")
+}
+
+model CustomerToken {
+  id             String   @id @default(uuid())
+  conversationId String
+  accessToken    String
+  refreshToken   String?
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([expiresAt])
+  @@map("customer_tokens")
+}
+
+model CodeVerifier {
+  id        String   @id @default(uuid())
+  state     String   @unique
+  verifier  String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([state])
+  @@index([expiresAt])
+  @@map("code_verifiers")
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  messages       Message[]
+  customerTokens CustomerToken[]
+  accountUrl     CustomerAccountUrl?
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  role           String // "user" or "assistant"
+  content        String
+  createdAt      DateTime @default(now())
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+model CustomerAccountUrl {
+  id             String   @id @default(uuid())
+  conversationId String   @unique
+  url            String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("customer_account_urls")
 }
