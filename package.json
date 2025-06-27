@@ -25,6 +25,7 @@
     "db:seed:dev": "tsx ./app/utils/commands/seed.dev.ts",
     "db:seed:prod": "tsx ./app/utils/commands/seed.prod.ts",
     "db:faker": "tsx ./app/utils/commands/faker.ts",
+    "db:status": "tsx ./app/utils/commands/db-status.ts",
     "postinstall": "pnpm run db:generate"
   },
   "type": "module",
