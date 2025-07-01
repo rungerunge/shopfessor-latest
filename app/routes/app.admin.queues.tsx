@@ -132,9 +132,8 @@ export async function action({ request }: ActionFunctionArgs) {
 
       case "process-image": {
         const imageUrl = formData.get("imageUrl") as string;
-        const userId = formData.get("userId") as string;
 
-        if (!imageUrl || !userId) {
+        if (!imageUrl) {
           return json<ActionErrorResponse>(
             { error: "Missing required fields" },
             { status: 400 },
@@ -143,7 +142,6 @@ export async function action({ request }: ActionFunctionArgs) {
 
         const job = await queueManager.addJob("process-image", {
           imageUrl,
-          userId,
           transformations: {
             resize: { width: 800, height: 600 },
             format: "webp",
@@ -195,7 +193,6 @@ export default function AdminQueuesDashboard() {
 
   const [imageForm, setImageForm] = useState({
     imageUrl: "",
-    userId: "",
   });
 
   const emailFetcher = useFetcher<ActionResponse>();
@@ -214,7 +211,7 @@ export default function AdminQueuesDashboard() {
       if (type === "email") {
         setEmailForm({ to: "", subject: "", body: "" });
       } else {
-        setImageForm({ imageUrl: "", userId: "" });
+        setImageForm({ imageUrl: "" });
       }
     },
     [shopify],
@@ -276,7 +273,6 @@ export default function AdminQueuesDashboard() {
   const fillDummyImageData = useCallback(() => {
     setImageForm({
       imageUrl: "https://picsum.photos/1200/800",
-      userId: "test-user-123",
     });
   }, []);
 
@@ -307,7 +303,7 @@ export default function AdminQueuesDashboard() {
   const handleImageSubmit = useCallback(
     (event: React.FormEvent) => {
       event.preventDefault();
-      if (!imageForm.imageUrl.trim() || !imageForm.userId.trim()) {
+      if (!imageForm.imageUrl.trim()) {
         shopify.toast.show("Please fill in all required fields", {
           isError: true,
         });
@@ -317,7 +313,6 @@ export default function AdminQueuesDashboard() {
       const formData = new FormData();
       formData.append("actionType", "process-image");
       formData.append("imageUrl", imageForm.imageUrl.trim());
-      formData.append("userId", imageForm.userId.trim());
       imageFetcher.submit(formData, { method: "post" });
     },
     [imageForm, imageFetcher, shopify],
@@ -349,7 +344,7 @@ export default function AdminQueuesDashboard() {
   // Check if forms are valid
   const isEmailFormValid =
     emailForm.to.trim() && emailForm.subject.trim() && emailForm.body.trim();
-  const isImageFormValid = imageForm.imageUrl.trim() && imageForm.userId.trim();
+  const isImageFormValid = imageForm.imageUrl.trim();
 
   return (
     <Frame>
@@ -625,22 +620,6 @@ export default function AdminQueuesDashboard() {
                           type="url"
                           placeholder="https://example.com/image.jpg"
                           helpText="URL of the image to process (will be resized to 800x600 and converted to WebP)"
-                          autoComplete="off"
-                          disabled={isImageSubmitting}
-                          required
-                        />
-
-                        <TextField
-                          label="User ID"
-                          value={imageForm.userId}
-                          onChange={(value) =>
-                            setImageForm((prev) => ({
-                              ...prev,
-                              userId: value,
-                            }))
-                          }
-                          placeholder="user123"
-                          helpText="Identifier for the user requesting image processing"
                           autoComplete="off"
                           disabled={isImageSubmitting}
                           required

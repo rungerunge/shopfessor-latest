@@ -24,7 +24,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         shop: shop,
       },
       include: {
-        user: true,
         oneTimePurchases: true,
       },
     });
@@ -74,7 +73,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         price: plan?.oneTimePrice || 0,
         currency: "USD",
         activatedAt: mappedStatus === "ACTIVE" ? new Date() : null,
-        userId: shopModel.userId,
         shopId: shopModel.id,
         planId: plan?.id || null,
         isTest: false,

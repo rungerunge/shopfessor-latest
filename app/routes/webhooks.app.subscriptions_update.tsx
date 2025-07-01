@@ -26,7 +26,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const shopModel = await prisma.shop.findFirst({
       where: { shop: shop },
       include: {
-        user: true,
         subscriptions: true,
       },
     });
@@ -136,7 +135,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         console.log(
           `Tracking coupon usage for updated subscription: ${existingSubscription.id}`,
         );
-        await trackCouponUsage(request, shop, shopModel.userId);
+        await trackCouponUsage(request, shop);
       }
     } else {
       // Create new subscription
@@ -150,7 +149,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           interval: mappedInterval as any,
           currentPeriodStart: new Date(app_subscription.created_at),
           currentPeriodEnd: mappedStatus === "ACTIVE" ? currentPeriodEnd : null,
-          userId: shopModel.userId,
           shopId: shopModel.id,
           planId: plan?.id || null,
         },
@@ -163,7 +161,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         console.log(
           `Tracking coupon usage for new subscription: ${newSubscription.id}`,
         );
-        await trackCouponUsage(admin, shop, shopModel.userId);
+        await trackCouponUsage(admin, shop);
       }
     }
 
@@ -190,17 +188,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
  *
  * @param admin - Shopify Admin API client
  * @param shopDomain - The shop domain
- * @param userId - The user ID from our database
  */
-const trackCouponUsage = async (
-  request: any,
-  shopDomain: string,
-  userId: string,
-) => {
+const trackCouponUsage = async (request: any, shopDomain: string) => {
   try {
-    console.log(
-      `Starting coupon usage tracking for shop: ${shopDomain}, user: ${userId}`,
-    );
+    console.log(`Starting coupon usage tracking for shop: ${shopDomain}`);
 
     const { subscriptions, errors } = await getCurrentSubscriptions(request);
 
@@ -285,7 +276,6 @@ const trackCouponUsage = async (
         const existingUsage = await prisma.couponUsage.findFirst({
           where: {
             couponId: coupon.id,
-            userId: userId,
             shop: shopDomain,
             subscriptionId: existingSubscription.id,
           },
@@ -302,7 +292,6 @@ const trackCouponUsage = async (
         await prisma.couponUsage.create({
           data: {
             couponId: coupon.id,
-            userId: userId,
             shop: shopDomain,
             subscriptionId: existingSubscription.id,
             usedAt: new Date(),

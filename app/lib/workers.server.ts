@@ -29,8 +29,8 @@ export function initializeWorkers() {
 
   // Report generation worker
   queueManager.createWorker("generate-report", async (job) => {
-    const { userId, reportType } = job.data;
-    console.log(`Generating ${reportType} report for user ${userId}`);
+    const { reportType } = job.data;
+    console.log(`Generating ${reportType}`);
     await new Promise((resolve) => setTimeout(resolve, 2000));
     console.log("Report generated successfully");
   });

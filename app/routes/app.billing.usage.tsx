@@ -302,7 +302,6 @@ export async function action({ request }: ActionFunctionArgs) {
         description,
         amount,
         shopId: shop.id,
-        userId: shop.user.id,
         shopifyId: shopifyUsageRecord?.id,
       });
 

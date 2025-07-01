@@ -111,17 +111,13 @@ const trackCouponUsage = async (
 ) => {
   const shop = await prisma.shop.findFirst({
     where: { shop: shopDomain },
-    include: { user: true },
   });
-
-  if (!shop?.user) return;
 
   try {
     const existingUsage = await prisma.couponUsage.findFirst({
       where: {
         couponId,
         shop: shopDomain,
-        userId: shop.user.id,
       },
     });
 
@@ -134,7 +130,6 @@ const trackCouponUsage = async (
       await prisma.couponUsage.create({
         data: {
           coupon: { connect: { id: couponId } },
-          user: { connect: { id: shop.user.id } },
           shopModel: { connect: { id: shop.id } },
           usedAt: null,
           shopifyChargeId: Number(chargeId),

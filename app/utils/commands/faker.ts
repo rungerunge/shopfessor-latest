@@ -96,7 +96,7 @@ async function createCoupons() {
           ? faker.number.float({ min: 5, max: 50, fractionDigits: 2 })
           : null,
         usageLimit: faker.number.int({ min: 10, max: 1000 }),
-        userUsageLimit: faker.number.int({ min: 1, max: 5 }),
+        shopUsageLimit: faker.number.int({ min: 1, max: 5 }),
         expiresAt: faker.date.future(),
         applicablePlans: ["ALL"],
         active: faker.datatype.boolean(),
@@ -195,9 +195,6 @@ async function createShopsAndRelatedData(
 
       await prisma.subscription.create({
         data: {
-          user: {
-            connect: { id: user.id },
-          },
           plan: {
             connect: { id: plans[0].id },
           },
@@ -263,9 +260,7 @@ async function createShopsAndRelatedData(
             coupon: {
               connect: { id: selectedCoupon.id },
             },
-            user: {
-              connect: { id: user.id },
-            },
+
             shopModel: {
               connect: { id: shop.id },
             },
@@ -293,7 +288,6 @@ async function createShopsAndRelatedData(
             userAgent: faker.internet.userAgent(),
             location: faker.location.city(),
             domain: shop.shop,
-            userId: user.id,
             createdAt: activityCreatedAt,
             updatedAt: generateRecentDate(activityCreatedAt),
           },

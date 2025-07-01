@@ -127,13 +127,6 @@ export const GET_CURRENT_SUBSCRIPTION = `#graphql
 export async function getCurrentShop(shop: string) {
   return await prisma.shop.findFirst({
     where: { shop },
-    include: {
-      user: {
-        select: {
-          id: true,
-        },
-      },
-    },
   });
 }
 
@@ -266,7 +259,6 @@ export async function createUsageRecord(data: {
   description: string;
   amount: number;
   shopId: string;
-  userId: string;
   shopifyId?: string;
 }) {
   return await prisma.usageCharge.create({
@@ -277,7 +269,6 @@ export async function createUsageRecord(data: {
       currency: "USD",
       shopifyId: data.shopifyId,
       isTest: process.env.NODE_ENV !== "production",
-      userId: data.userId,
       shopId: data.shopId,
       planId: null,
       subscriptionId: null,

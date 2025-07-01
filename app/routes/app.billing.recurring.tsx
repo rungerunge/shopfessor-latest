@@ -41,9 +41,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // Get user and shop
   const shop = await prisma.shop.findUnique({
     where: { shop: session.shop },
-    include: {
-      user: true,
-    },
   });
 
   if (!shop) {
