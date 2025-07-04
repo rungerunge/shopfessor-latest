@@ -9,7 +9,6 @@
  * - Content-Type: multipart/form-data
  * - Body Parameters:
  *    - imageUrl (string): The URL of the image to process.
- *    - userId (string): The ID of the user requesting the processing.
  *
  * ✅ The request will enqueue a job with basic transformations:
  *    - Resize to 800x600
@@ -30,11 +29,9 @@ export async function action({ request }: ActionFunctionArgs) {
   try {
     const formData = await request.formData();
     const imageUrl = formData.get("imageUrl") as string;
-    const userId = formData.get("userId") as string;
 
     const job = await QueueService.processImage({
       imageUrl,
-      userId,
       transformations: {
         resize: { width: 800, height: 600 },
         format: "webp",

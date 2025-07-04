@@ -7,7 +7,6 @@
  *
  * 📦 Expected Job Data:
  * - imageUrl (string): URL of the image to process.
- * - userId (string): ID of the user requesting processing.
  * - transformations (object): Processing instructions (resize, format, etc.).
  *
  * ⚙️ Processing Logic:
@@ -20,10 +19,10 @@ import { Job } from "bullmq";
 import { ImageProcessingJobData } from "app/types/queue";
 
 export async function processImageJob(job: Job<ImageProcessingJobData>) {
-  const { imageUrl, userId, transformations } = job.data;
+  const { imageUrl, transformations } = job.data;
 
   try {
-    console.log(`Processing image ${imageUrl} for user ${userId}`);
+    console.log(`Processing image ${imageUrl}  `);
 
     // Simulate image processing steps
     await job.updateProgress(25);

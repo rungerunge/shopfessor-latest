@@ -162,7 +162,7 @@ CREATE TABLE "coupons" (
     "discountAmount" DECIMAL(10,2),
     "percentage" DECIMAL(5,2),
     "usageLimit" INTEGER,
-    "userUsageLimit" INTEGER DEFAULT 1,
+    "shopUsageLimit" INTEGER DEFAULT 1,
     "expiresAt" TIMESTAMP(3),
     "applicablePlans" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "allowOneTime" BOOLEAN NOT NULL DEFAULT true,

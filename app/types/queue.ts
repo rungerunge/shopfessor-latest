@@ -7,7 +7,6 @@ export interface EmailJobData {
 
 export interface ImageProcessingJobData {
   imageUrl: string;
-  userId: string;
   transformations: {
     resize?: { width: number; height: number };
     format?: "webp" | "jpeg" | "png";
@@ -17,5 +16,5 @@ export interface ImageProcessingJobData {
 export interface JobTypes {
   "send-email": EmailJobData;
   "process-image": ImageProcessingJobData;
-  "generate-report": { userId: string; reportType: string };
+  "generate-report": { reportType: string };
 }

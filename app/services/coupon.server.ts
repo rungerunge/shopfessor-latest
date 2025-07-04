@@ -1,5 +1,4 @@
-import type { Coupon, Plan, Shop, User } from "@prisma/client";
-import { CouponType, PurchaseStatus } from "@prisma/client";
+import { Coupon, Plan, Shop, CouponType } from "@prisma/client";
 import prisma from "app/lib/db.server";
 
 /**
@@ -12,11 +11,9 @@ export type PurchaseContext =
   | { type: "USAGE_BASED" }; // Added for completeness
 
 /**
- * Extended Shop type with User relation
+ * Extended Shop type (user relation removed)
  */
-type ShopWithUser = Shop & {
-  user: User;
-};
+type ShopWithId = Shop;
 
 export const verifyCoupon = async (
   session: any,
@@ -114,20 +111,16 @@ export const verifyCoupon = async (
       };
     }
 
-    // 3. Get shop and user information
-    const shop = await getShopWithUser(session.shop);
+    // 3. Get shop information
+    const shop = await getShopByDomain(session.shop);
     if (!shop) {
       return { success: false, error: "Shop not found." };
     }
 
-    if (!shop.user) {
-      return { success: false, error: "User not found for this shop." };
-    }
-
-    // 4. Check usage limits
-    const [totalUsage, userUsage] = await Promise.all([
+    // 4. Check usage limits (by shopId)
+    const [totalUsage, shopUsage] = await Promise.all([
       getCouponUsageCount(coupon.id),
-      getUserCouponUsageCount(coupon.id, shop.userId),
+      getShopCouponUsageCount(coupon.id, shop.id),
     ]);
 
     if (coupon.usageLimit !== null && totalUsage >= coupon.usageLimit) {
@@ -137,10 +130,11 @@ export const verifyCoupon = async (
       };
     }
 
-    if (coupon.userUsageLimit !== null && userUsage >= coupon.userUsageLimit) {
+    if (coupon.shopUsageLimit !== null && shopUsage >= coupon.shopUsageLimit) {
       return {
         success: false,
-        error: "You have already used this coupon the maximum number of times.",
+        error:
+          "This shop has already used this coupon the maximum number of times.",
       };
     }
 
@@ -296,44 +290,57 @@ const getCouponUsageCount = async (couponId: string): Promise<number> => {
 };
 
 /**
- * Gets usage count for a specific user and coupon
+ * Gets usage count for a specific shop and coupon
  */
-const getUserCouponUsageCount = async (
+const getShopCouponUsageCount = async (
   couponId: string,
-  userId: string,
+  shopId: string,
 ): Promise<number> => {
   try {
+    const shop = await getShopById(shopId);
+    if (!shop) return 0;
     return await prisma.couponUsage.count({
       where: {
         couponId,
-        userId,
+        shop: shop.shop, // couponUsage.shop is shop domain
         usedAt: { not: null }, // Only count actually used coupons
       },
     });
   } catch (error) {
-    console.error("Error getting user coupon usage count:", error);
+    console.error("Error getting shop coupon usage count:", error);
     return 0;
   }
 };
 
 /**
- * Gets shop with user relation
+ * Gets shop by domain
  */
-const getShopWithUser = async (
+const getShopByDomain = async (
   shopDomain: string,
-): Promise<ShopWithUser | null> => {
+): Promise<ShopWithId | null> => {
   try {
     return await prisma.shop.findFirst({
       where: {
         shop: shopDomain,
         isActive: true,
       },
-      include: {
-        user: true,
-      },
     });
   } catch (error) {
-    console.error("Error getting shop with user:", error);
+    console.error("Error getting shop by domain:", error);
+    return null;
+  }
+};
+
+/**
+ * Gets shop by id
+ */
+const getShopById = async (shopId: string): Promise<ShopWithId | null> => {
+  try {
+    return await prisma.shop.findUnique({
+      where: { id: shopId },
+    });
+  } catch (error) {
+    console.error("Error getting shop by id:", error);
     return null;
   }
 };
@@ -343,7 +350,7 @@ const getShopWithUser = async (
  */
 export const recordCouponUsage = async (
   couponId: string,
-  userId: string,
+  shopId: string,
   shopDomain: string,
   purchaseId: string,
   purchaseType: PurchaseContext["type"],
@@ -351,7 +358,6 @@ export const recordCouponUsage = async (
   try {
     const usageData: any = {
       couponId,
-      userId,
       shop: shopDomain,
       usedAt: new Date(),
     };

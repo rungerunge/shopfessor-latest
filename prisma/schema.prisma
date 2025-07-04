@@ -56,12 +56,7 @@ model User {
   updatedAt       DateTime  @updatedAt
 
   // Relations
-  shops            Shop[]
-  subscriptions    Subscription[]
-  oneTimePurchases OneTimePurchase[]
-  usageCharges     UsageCharge[]
-  couponUsages     CouponUsage[]
-  userActivities   UserActivity[]
+  shops Shop[]
 
   @@map("users")
 }
@@ -174,12 +169,11 @@ model OneTimePurchase {
   updatedAt   DateTime  @updatedAt
 
   // Foreign Keys
-  userId String
+
   shopId String
   planId String?
 
   // Relations
-  user         User          @relation(fields: [userId], references: [id])
   shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
   plan         Plan?         @relation(fields: [planId], references: [id])
   couponUsages CouponUsage[]
@@ -216,12 +210,11 @@ model Subscription {
   updatedAt DateTime @updatedAt
 
   // Foreign Keys
-  userId String
+
   shopId String
   planId String?
 
   // Relations
-  user         User          @relation(fields: [userId], references: [id])
   shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
   plan         Plan?         @relation(fields: [planId], references: [id])
   usageCharges UsageCharge[]
@@ -249,13 +242,11 @@ model UsageCharge {
   updatedAt DateTime @updatedAt
 
   // Foreign Keys
-  userId         String // @TODO: remove this id
   shopId         String
   planId         String? // Nullable - for standalone usage charges not tied to plans
   subscriptionId String? // Usage charges can be standalone or tied to subscriptions
 
   // Relations
-  user         User          @relation(fields: [userId], references: [id])
   shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
   plan         Plan?         @relation(fields: [planId], references: [id])
   subscription Subscription? @relation(fields: [subscriptionId], references: [id])
@@ -276,7 +267,7 @@ model Coupon {
   discountAmount  Decimal?   @db.Decimal(10, 2)
   percentage      Decimal?   @db.Decimal(5, 2)
   usageLimit      Int?
-  userUsageLimit  Int?       @default(1)
+  shopUsageLimit  Int?       @default(1)
   expiresAt       DateTime?
   applicablePlans String[]   @default([])
 
@@ -311,17 +302,15 @@ model CouponUsage {
 
   // Foreign Keys
   couponId String
-  userId   String
 
   // Relations
   coupon          Coupon           @relation(fields: [couponId], references: [id])
-  user            User             @relation(fields: [userId], references: [id])
   shopModel       Shop             @relation(fields: [shop], references: [shop])
   oneTimePurchase OneTimePurchase? @relation(fields: [oneTimePurchaseId], references: [id])
   subscription    Subscription?    @relation(fields: [subscriptionId], references: [id])
   usageCharge     UsageCharge?     @relation(fields: [usageChargeId], references: [id])
 
-  @@unique([couponId, userId, shop])
+  @@unique([couponId, shop])
   @@map("coupon_usages")
 }
 
@@ -337,12 +326,8 @@ model UserActivity {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  // Foreign Keys
-  userId String?
-
   // Relations
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-  shop Shop  @relation(fields: [domain], references: [shop])
+  shop Shop @relation(fields: [domain], references: [shop])
 
   @@index([domain])
   @@index([activityType])

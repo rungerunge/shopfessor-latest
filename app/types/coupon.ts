@@ -7,7 +7,7 @@ export interface Coupon {
   active: boolean;
   expiry: Date | null;
   limit: number;
-  userLimit: number;
+  shopLimit: number;
   applicablePlans: string[];
   createdAt: Date;
   updatedAt: Date;
@@ -16,7 +16,6 @@ export interface Coupon {
 export interface CouponUsage {
   id: string;
   couponId: string;
-  userId: string;
   subscriptionId: string;
   usedAt: Date;
 }
