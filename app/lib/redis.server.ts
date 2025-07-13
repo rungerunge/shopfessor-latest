@@ -10,7 +10,9 @@ if (process.env.NODE_ENV === "production") {
   redis = new Redis(process.env.REDIS_URL!);
 } else {
   if (!global.__redis) {
-    global.__redis = new Redis(process.env.REDIS_URL!);
+    global.__redis = new Redis(process.env.REDIS_URL!, {
+      maxRetriesPerRequest: null,
+    });
   }
   redis = global.__redis;
 }

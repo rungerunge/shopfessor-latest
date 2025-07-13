@@ -26,6 +26,7 @@
     "db:seed:prod": "tsx ./app/utils/commands/seed.prod.ts",
     "db:faker": "tsx ./app/utils/commands/faker.ts",
     "db:status": "tsx ./app/utils/commands/db-status.ts",
+    "db:unused": "./.scripts/unused.sh",
     "postinstall": "pnpm run db:generate"
   },
   "type": "module",
@@ -63,7 +64,17 @@
     "swiper": "^11.2.8",
     "vite-tsconfig-paths": "^5.0.1",
     "winston": "^3.17.0",
-    "winston-slack-webhook-transport": "^2.3.6"
+    "winston-slack-webhook-transport": "^2.3.6",
+     "@langchain/textsplitters": "^0.1.0",
+    "@qdrant/js-client-rest": "^1.14.1",
+    "file-type": "^21.0.0",
+    "lodash": "^4.17.21",
+    "mammoth": "^1.9.1",
+    "mime-types": "^3.0.1",
+    "pdf-parse": "^1.1.1",
+    "tiktoken": "^1.0.21",
+    "uuid": "^11.1.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@faker-js/faker": "^9.2.0",
@@ -79,6 +90,7 @@
     "eslint": "^8.42.0",
     "eslint-config-prettier": "^10.0.1",
     "prettier": "^3.2.4",
+    "@types/uuid": "^10.0.0",
     "tsx": "^4.19.4",
     "typescript": "^5.2.2",
     "vite": "^6.2.2"

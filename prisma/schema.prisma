@@ -42,6 +42,21 @@ enum CouponType {
   PERCENTAGE
 }
 
+enum DocumentStatus {
+  UPLOADED
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+enum FileType {
+  PDF
+  DOCX
+  TXT
+  XLSX
+  CSV
+}
+
 model User {
   id              String    @id @default(uuid())
   email           String    @unique
@@ -111,6 +126,7 @@ model Shop {
   usageCharges     UsageCharge[]
   couponUsages     CouponUsage[]
   userActivities   UserActivity[]
+  document         Document[]
 
   @@index([userId])
   @@index([shop, isActive])
@@ -404,4 +420,78 @@ model CustomerAccountUrl {
 
   @@index([conversationId])
   @@map("customer_account_urls")
+}
+
+model Document {
+  id           String   @id @default(uuid())
+  filename     String
+  originalName String
+  fileUrl      String
+  fileSize     Int
+  mimeType     String
+  fileType     FileType
+
+  // Processing
+  status DocumentStatus @default(UPLOADED)
+
+  // AI Processing
+  extractedText String?  @db.Text
+  aiSummary     String?  @db.Text
+  keywords      String[] @default([])
+
+  // Metadata
+  metadata Json?
+  tags     String[] @default([])
+
+  contentType String
+  s3Key       String? // S3 object key
+  s3Url       String? // S3 URL
+
+  // Processing metadata
+  totalChunks  Int?
+  processedAt  DateTime?
+  errorMessage String?
+
+  // Pinecone metadata
+  pineconeIds String[] // Array of Pinecone vector IDs
+  namespace   String? // Pinecone namespace
+
+  // Audit
+  uploadedBy String? // User ID who uploaded
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Foreign Keys
+  shopId String
+
+  // Relations
+  shop   Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  chunks DocumentChunk[]
+
+  @@index([shopId, status])
+  @@index([fileType])
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id         String @id @default(uuid())
+  documentId String
+  chunkText  String @db.Text
+  chunkIndex Int
+  tokenCount Int
+
+  // Pinecone reference
+  pineconeId String? // Pinecone vector ID
+
+  // Metadata for retrieval
+  startChar  Int?
+  endChar    Int?
+  pageNumber Int?
+
+  createdAt DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, chunkIndex])
+  @@map("document_chunks")
 }
