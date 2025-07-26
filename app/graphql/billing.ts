@@ -146,3 +146,33 @@ export const APP_ONE_TIME_PURCHASE_CREATE = `#graphql
     }
   }
 `;
+
+export const APP_SUBSCRIPTION_CREATE = `#graphql
+  mutation AppSubscriptionCreate(
+    $name: String!
+    $lineItems: [AppSubscriptionLineItemInput!]!
+    $returnUrl: URL!
+    $test: Boolean
+    $trialDays: Int
+  ) {
+    appSubscriptionCreate(
+      name: $name
+      returnUrl: $returnUrl
+      test: $test
+      trialDays: $trialDays
+      lineItems: $lineItems
+    ) {
+      userErrors {
+        field
+        message
+      }
+      appSubscription {
+        id
+        name
+        status
+        createdAt
+        test
+      }
+      confirmationUrl
+    }
+  }`;

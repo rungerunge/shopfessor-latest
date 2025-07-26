@@ -20,7 +20,7 @@ services:
 
   mailtrap:
     image: maildev/maildev
-    container_name: mailtrap
+    container_name: mailtrap_dev
     ports:
       - "1080:1080"
       - "1025:1025"
@@ -30,14 +30,14 @@ services:
 
   redis:
     image: redis:7
-    container_name: shopifast_redis
+    container_name: shopifast_redis_dev
     ports:
       - "6379:6379"
     restart: always
 
   redisinsight:
     image: redis/redisinsight:latest
-    container_name: redisinsight
+    container_name: redisinsight_dev
     ports:
       - "5540:5540"
     restart: always

@@ -1,7 +1,17 @@
 import { BillingError } from "../utils/error-handling.server";
 import prisma from "app/lib/db.server";
 import { Coupon } from "@prisma/client";
-import { createAppSubscription } from "app/models/billing.server";
+import { authenticate } from "app/lib/shopify.server";
+
+import {
+  APP_SUBSCRIPTION_CREATE,
+  CREATE_USAGE_SUBSCRIPTION,
+  GET_CURRENT_SUBSCRIPTIONS,
+  CANCEL_APP_SUBSCRIPTION,
+  APP_ONE_TIME_PURCHASE_CREATE,
+} from "app/graphql/billing";
+import { CurrencyCode } from "app/types/admin.types.d";
+import logger from "app/utils/logger";
 
 interface CreateSubscriptionParams {
   request: any;
@@ -11,35 +21,21 @@ interface CreateSubscriptionParams {
   couponCode?: string;
 }
 
-// const APP_SUBSCRIPTION_CREATE = `#graphql
-//   mutation AppSubscriptionCreate(
-//     $name: String!
-//     $lineItems: [AppSubscriptionLineItemInput!]!
-//     $returnUrl: URL!
-//     $test: Boolean
-//     $trialDays: Int
-//   ) {
-//     appSubscriptionCreate(
-//       name: $name
-//       returnUrl: $returnUrl
-//       test: $test
-//       trialDays: $trialDays
-//       lineItems: $lineItems
-//     ) {
-//       userErrors {
-//         field
-//         message
-//       }
-//       appSubscription {
-//         id
-//         name
-//         status
-//         createdAt
-//         test
-//       }
-//       confirmationUrl
-//     }
-//   }`;
+interface SubscriptionInput {
+  selectedPlan: {
+    name: string;
+    monthlyPrice: string | number;
+  };
+  usageData: {
+    usageTerms: string;
+    usageCappedAmount: number;
+  };
+}
+
+interface OneTimePurchaseInput {
+  name: string;
+  price: string | number; // Assuming price can be a string or number and will be converted to MoneyInput internally by GraphQL
+}
 
 // Helper function to find plan
 const findPlan = async (planId: string) => {
@@ -189,6 +185,8 @@ export const createSubscription = async ({
   couponCode,
 }: CreateSubscriptionParams): Promise<string> => {
   try {
+    const { admin, session } = await authenticate.admin(request);
+
     // Find plan and coupon
     const plan = await findPlan(planId);
     const coupon = couponCode ? await findCoupon(couponCode) : null;
@@ -200,7 +198,7 @@ export const createSubscription = async ({
     // Prepare subscription input
     const subscriptionInput = {
       name: subscriptionName,
-      returnUrl: `https://${session.shop}/admin/apps/${process.env.SHOPIFY_API_KEY}`,
+      returnUrl: `https://${session.shop}/admin/apps/${process.env.SHOPIFY_API_KEY}/app/billing`,
 
       test: process.env.NODE_ENV !== "production",
       lineItems,
@@ -208,28 +206,28 @@ export const createSubscription = async ({
     };
 
     // Create Shopify billing subscription using GraphQL
-    // const response = await admin.graphql(APP_SUBSCRIPTION_CREATE, {
-    //   variables: subscriptionInput,
-    // });
+    const response = await admin.graphql(APP_SUBSCRIPTION_CREATE, {
+      variables: subscriptionInput,
+    });
 
-    // const data = await response.json();
+    const data = await response.json();
 
-    // // Check for GraphQL errors
-    // if (data.data?.appSubscriptionCreate?.userErrors?.length > 0) {
-    //   const errors = data.data.appSubscriptionCreate.userErrors;
-    //   console.error("GraphQL errors:", errors);
-    //   throw new BillingError(
-    //     errors.map((err: any) => err.message).join(", "),
-    //     "GRAPHQL_ERROR",
-    //   );
-    // }
+    // Check for GraphQL errors
+    if (data.data?.appSubscriptionCreate?.userErrors?.length > 0) {
+      const errors = data.data.appSubscriptionCreate.userErrors;
+      console.error("GraphQL errors:", errors);
+      throw new BillingError(
+        errors.map((err: any) => err.message).join(", "),
+        "GRAPHQL_ERROR",
+      );
+    }
 
-    // const confirmationUrl = data.data?.appSubscriptionCreate?.confirmationUrl;
-    // const subscriptionId =
-    //   data.data?.appSubscriptionCreate?.appSubscription?.id;
+    const confirmationUrl = data.data?.appSubscriptionCreate?.confirmationUrl;
+    const subscriptionId =
+      data.data?.appSubscriptionCreate?.appSubscription?.id;
 
-    const { subscription, confirmationUrl, errors } =
-      await createAppSubscription(request, subscriptionInput);
+    // const { subscription, confirmationUrl, errors } =
+    //   await createAppSubscription(request, subscriptionInput);
 
     if (!confirmationUrl) {
       throw new BillingError(
@@ -238,7 +236,7 @@ export const createSubscription = async ({
       );
     }
 
-    const subscriptionId = subscription?.id;
+    // const subscriptionId = subscription?.id;
 
     // Record coupon usage if a coupon was applied
     if (couponCode && coupon && subscriptionId) {
@@ -292,3 +290,218 @@ export const formatPrice = (price: number): string => {
     currency: "USD",
   }).format(price);
 };
+
+export async function getCurrentSubscriptions(request: Request) {
+  try {
+    const { admin } = await authenticate.admin(request);
+
+    const response = await admin.graphql(GET_CURRENT_SUBSCRIPTIONS);
+    const responseJson = await response.json();
+
+    return {
+      subscriptions:
+        responseJson.data?.currentAppInstallation?.activeSubscriptions || [],
+    };
+  } catch (error) {
+    logger.error("Error in getCurrentSubscriptions", { error });
+    return {
+      subscriptions: [],
+    };
+  }
+}
+
+export async function createAppSubscription(
+  request: Request,
+  subscriptionData: SubscriptionInput,
+) {
+  try {
+    const { admin, session } = await authenticate.admin(request);
+
+    console.log("\n\n\n\n🔥 ", subscriptionData);
+    const { selectedPlan, usageData } = subscriptionData;
+
+    const subscriptionInput = {
+      name: selectedPlan.name,
+      returnUrl: `https://${session.shop}/admin/apps/${process.env.SHOPIFY_API_KEY}/app/billing`,
+      usageTerms: usageData.usageTerms,
+      usageCappedAmount: usageData.usageCappedAmount,
+      usageCurrencyCode: CurrencyCode.Usd,
+      recurringAmount: Number(selectedPlan.monthlyPrice),
+      recurringCurrencyCode: CurrencyCode.Usd,
+      test: process.env.NODE_ENV !== "production",
+    };
+
+    const response = await admin.graphql(CREATE_USAGE_SUBSCRIPTION, {
+      variables: subscriptionInput,
+    });
+    const responseJson = await response.json();
+
+    // Check for user errors
+    const userErrors =
+      responseJson.data?.appSubscriptionCreate?.userErrors ?? [];
+    if (userErrors.length > 0) {
+      const errors = userErrors;
+      logger.error("User errors in createAppSubscription", {
+        errors,
+        subscriptionInput,
+      });
+      return {
+        success: false,
+        errors: errors,
+        errorMessage: errors.map((err: any) => err.message).join(", "),
+      };
+    }
+
+    // Check for confirmation URL
+    const confirmationUrl =
+      responseJson.data?.appSubscriptionCreate?.confirmationUrl;
+    if (!confirmationUrl) {
+      logger.error("No confirmation URL received in createAppSubscription", {
+        subscriptionInput,
+      });
+      return {
+        success: false,
+        errors: [],
+        errorMessage: "No confirmation URL received",
+      };
+    }
+
+    return {
+      success: true,
+      confirmationUrl,
+      subscription: responseJson.data?.appSubscriptionCreate?.appSubscription,
+      errors: [],
+    };
+  } catch (error) {
+    logger.error("Error in createAppSubscription", { error, subscriptionData });
+    return {
+      success: false,
+      errors: [{ message: "Internal server error" }],
+      errorMessage: "Internal server error",
+    };
+  }
+}
+
+export async function cancelAppSubscription(request: Request, id: string) {
+  try {
+    const { admin } = await authenticate.admin(request);
+
+    const response = await admin.graphql(CANCEL_APP_SUBSCRIPTION, {
+      variables: { id },
+    });
+
+    const responseJson = await response.json();
+
+    // Check for user errors
+    const userErrors =
+      responseJson.data?.appSubscriptionCancel?.userErrors ?? [];
+    if (userErrors.length > 0) {
+      const errors = userErrors;
+      logger.error("User errors in cancelAppSubscription", { errors, id });
+      return {
+        success: false,
+        errors: errors,
+        errorMessage: errors.map((err: any) => err.message).join(", "),
+      };
+    }
+
+    // Check if subscription was successfully cancelled
+    const appSubscription =
+      responseJson.data?.appSubscriptionCancel?.appSubscription;
+    if (!appSubscription || appSubscription.status !== "CANCELLED") {
+      logger.error(
+        "Subscription could not be cancelled in cancelAppSubscription",
+        { id },
+      );
+      return {
+        success: false,
+        errors: [],
+        errorMessage: "Subscription could not be cancelled",
+      };
+    }
+
+    return {
+      success: true,
+      subscription: appSubscription,
+      errors: [],
+    };
+  } catch (error) {
+    logger.error("Error in cancelAppSubscription", { error, id });
+    return {
+      success: false,
+      errors: [{ message: "Internal server error" }],
+      errorMessage: "Internal server error",
+    };
+  }
+}
+
+export async function createOneTimePurchase(
+  request: Request,
+  purchaseData: OneTimePurchaseInput,
+) {
+  try {
+    const { admin, session } = await authenticate.admin(request);
+
+    const { name, price } = purchaseData;
+
+    const purchaseInput = {
+      name: name,
+      price: {
+        amount: Number(price), // Ensure amount is a number
+        currencyCode: CurrencyCode.Usd,
+      },
+      returnUrl: `https://${session.shop}/admin/apps/${process.env.SHOPIFY_API_KEY}/app/billing`, // Adjust return URL as needed
+      test: process.env.NODE_ENV !== "production",
+    };
+
+    const response = await admin.graphql(APP_ONE_TIME_PURCHASE_CREATE, {
+      variables: purchaseInput,
+    });
+
+    const responseJson = await response.json();
+
+    // Check for user errors
+    const userErrors =
+      responseJson.data?.appPurchaseOneTimeCreate?.userErrors ?? [];
+    if (userErrors.length > 0) {
+      const errors = userErrors;
+      logger.error("User errors in createOneTimePurchase", {
+        errors,
+        purchaseInput,
+      });
+      return {
+        success: false,
+        errors: errors,
+        errorMessage: errors.map((err: any) => err.message).join(", "),
+      };
+    }
+
+    // Check for confirmation URL
+    const confirmationUrl =
+      responseJson.data?.appPurchaseOneTimeCreate?.confirmationUrl;
+    if (!confirmationUrl) {
+      logger.error("No confirmation URL received in createOneTimePurchase", {
+        purchaseInput,
+      });
+      return {
+        success: false,
+        errors: [],
+        errorMessage: "No confirmation URL received",
+      };
+    }
+
+    return {
+      success: true,
+      confirmationUrl,
+      purchase: responseJson.data?.appPurchaseOneTimeCreate?.appPurchaseOneTime,
+      errors: [],
+    };
+  } catch (error) {
+    logger.error("Error in createOneTimePurchase", { error, purchaseData });
+    return {
+      success: false,
+      errors: [{ message: "Internal server error" }],
+      errorMessage: "Internal server error",
+    };
+  }
+}
