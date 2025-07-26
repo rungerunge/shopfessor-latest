@@ -29,4 +29,7 @@ pnpm-lock.yaml
 
 shopify.app.toml
 
+test/
+
+
 *.log

@@ -13,8 +13,16 @@ export interface ImageProcessingJobData {
   };
 }
 
+export interface ProcessDocumentJobData {
+  documentId: string;
+  filePath: string;
+  filename: string;
+  contentType: string;
+}
+
 export interface JobTypes {
   "send-email": EmailJobData;
   "process-image": ImageProcessingJobData;
   "generate-report": { reportType: string };
+  "process-document": ProcessDocumentJobData;
 }

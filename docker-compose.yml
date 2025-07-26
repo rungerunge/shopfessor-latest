@@ -3,12 +3,12 @@ services:
     ports:
       - 5432:5432
     environment:
-      - POSTGRES_DB=shopifast
+      - POSTGRES_DB=shopifast_dev
       - POSTGRES_USER=default
       - POSTGRES_PASSWORD=secret
     image: postgres:13.3
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - shopifast_postgres_data:/var/lib/postgresql/data
 
   adminer:
     image: adminer
@@ -20,7 +20,7 @@ services:
 
   mailtrap:
     image: maildev/maildev
-    container_name: mailtrap
+    container_name: mailtrap_dev
     ports:
       - "1080:1080"
       - "1025:1025"
@@ -30,19 +30,36 @@ services:
 
   redis:
     image: redis:7
-    container_name: redis
+    container_name: shopifast_redis_dev
     ports:
       - "6379:6379"
     restart: always
 
   redisinsight:
     image: redis/redisinsight:latest
-    container_name: redisinsight
+    container_name: redisinsight_dev
     ports:
       - "5540:5540"
     restart: always
     depends_on:
       - redis
 
+  qdrant:
+    image: qdrant/qdrant:v1.7.4
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - shopifast_qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__SERVICE__GRPC_PORT: 6334
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
-  postgres_data:
+  shopifast_postgres_data:
+  shopifast_qdrant_data:

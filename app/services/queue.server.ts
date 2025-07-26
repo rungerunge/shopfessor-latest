@@ -12,6 +12,12 @@ export class QueueService {
     });
   }
 
+  static async processDocument(documentData: JobTypes["process-document"]) {
+    return await queueManager.addJob("process-document", documentData, {
+      priority: 5, // Medium priority for document processing
+    });
+  }
+
   static async scheduleReport(
     reportData: JobTypes["generate-report"],
     cron: string,
@@ -29,4 +35,37 @@ export class QueueService {
       delay: delayMs,
     });
   }
+
+  static async delayedDocument(
+    documentData: JobTypes["process-document"],
+    delayMs: number,
+  ) {
+    return await queueManager.addJob("process-document", documentData, {
+      delay: delayMs,
+    });
+  }
+}
+
+// Export the missing functions for backward compatibility
+export async function addDocumentToQueue(data: JobTypes["process-document"]) {
+  const job = await QueueService.processDocument(data);
+  return job.id;
+}
+
+export async function getQueueStats() {
+  const documentQueue = queueManager.getQueue("process-document");
+
+  const [waiting, active, completed, failed] = await Promise.all([
+    documentQueue.getWaiting(),
+    documentQueue.getActive(),
+    documentQueue.getCompleted(),
+    documentQueue.getFailed(),
+  ]);
+
+  return {
+    waiting: waiting.length,
+    active: active.length,
+    completed: completed.length,
+    failed: failed.length,
+  };
 }
