@@ -1,4 +1,5 @@
-import pdfParse from "pdf-parse";
+// @ts-ignore
+import * as pdfParse from "pdf-parse/lib/pdf-parse.js";
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
 import { encoding_for_model } from "tiktoken";
@@ -15,6 +16,9 @@ import { upsertVectors, type DocumentVector } from "./qdrant.server";
 import pLimit from "p-limit";
 import { ProcessDocumentJobData } from "app/types/queue";
 import prisma from "app/lib/db.server";
+import logger from "app/utils/logger";
+import { uploadToS3 } from "app/lib/s3.server";
+import fetch from "node-fetch";
 
 const openai = new OpenAI({
   apiKey: config.OPENAI_API_KEY,
@@ -28,7 +32,7 @@ const embeddingLimit = pLimit(5);
 // Supported file processors
 const FILE_PROCESSORS = {
   "application/pdf": async (buffer: Buffer) => {
-    const pdfData = await pdfParse(buffer);
+    const pdfData = await pdfParse.default(buffer);
     return pdfData.text;
   },
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
@@ -92,7 +96,7 @@ export async function extractTextFromFile(
 
     return await processor(buffer);
   } catch (error) {
-    console.error("Error extracting text:", error);
+    logger.error("Error extracting text:", error);
     throw new Error(
       `Failed to extract text from ${filename}: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
@@ -139,6 +143,7 @@ export async function chunkText(
 }
 
 export async function generateEmbedding(text: string): Promise<number[]> {
+  console.log("🧮 🧮 🧮 🧮 🧮 ", text);
   return embeddingLimit(async () => {
     try {
       const response = await openai.embeddings.create({
@@ -147,7 +152,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       });
       return response.data[0].embedding;
     } catch (error) {
-      console.error("Error generating embedding:", error);
+      logger.error("Error generating embedding:", error);
       throw new Error(
         `Failed to generate embedding: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
@@ -170,8 +175,16 @@ export async function processDocumentJob(data: ProcessDocumentJobData) {
       data: { status: "PROCESSING" },
     });
 
-    // Read file
-    const buffer = await fs.readFile(filePath);
+    // Read file (support S3 URL or local path)
+    let buffer: Buffer;
+    if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
+      const res = await fetch(filePath);
+      if (!res.ok)
+        throw new Error(`Failed to fetch file from S3: ${res.statusText}`);
+      buffer = Buffer.from(await res.arrayBuffer());
+    } else {
+      buffer = await fs.readFile(filePath);
+    }
 
     // Extract text
     const text = await extractTextFromFile(buffer, contentType, filename);
@@ -214,18 +227,18 @@ export async function processDocumentJob(data: ProcessDocumentJobData) {
         const vectorId = uuidv4();
 
         // Save to database
-        await prisma.documentChunk.create({
-          data: {
-            id: vectorId,
-            documentId,
-            chunkText: chunkItem.text,
-            chunkIndex,
-            tokenCount: encoder.encode(chunkItem.text).length,
-            startChar: chunkItem.startChar,
-            endChar: chunkItem.endChar,
-            pineconeId: vectorId,
-          },
-        });
+        // await prisma.documentChunk.create({
+        //   data: {
+        //     id: vectorId,
+        //     documentId,
+        //     chunkText: chunkItem.text,
+        //     chunkIndex,
+        //     tokenCount: encoder.encode(chunkItem.text).length,
+        //     startChar: chunkItem.startChar,
+        //     endChar: chunkItem.endChar,
+        //     pineconeId: vectorId,
+        //   },
+        // });
 
         // Prepare vector for Qdrant
         vectors.push({
@@ -259,11 +272,13 @@ export async function processDocumentJob(data: ProcessDocumentJobData) {
       },
     });
 
-    // Clean up uploaded file
-    try {
-      await fs.unlink(filePath);
-    } catch (error) {
-      console.warn("Failed to delete uploaded file:", error);
+    // Clean up uploaded file (only if local)
+    if (!(filePath.startsWith("http://") || filePath.startsWith("https://"))) {
+      try {
+        await fs.unlink(filePath);
+      } catch (error) {
+        logger.warn("Failed to delete uploaded file:", error);
+      }
     }
 
     return {
@@ -272,7 +287,7 @@ export async function processDocumentJob(data: ProcessDocumentJobData) {
       vectorsUploaded: vectors.length,
     };
   } catch (error) {
-    console.error(`Error processing document ${documentId}:`, error);
+    logger.error(`Error processing document ${documentId}:`, error);
 
     // Update document with error
     await prisma.document.update({
@@ -283,11 +298,16 @@ export async function processDocumentJob(data: ProcessDocumentJobData) {
       },
     });
 
-    // Clean up uploaded file
-    try {
-      await fs.unlink(filePath);
-    } catch (cleanupError) {
-      console.warn("Failed to delete uploaded file after error:", cleanupError);
+    // Clean up uploaded file after error (only if local)
+    if (!(filePath.startsWith("http://") || filePath.startsWith("https://"))) {
+      try {
+        await fs.unlink(filePath);
+      } catch (cleanupError) {
+        logger.warn(
+          "Failed to delete uploaded file after error:",
+          cleanupError,
+        );
+      }
     }
 
     throw error;
@@ -297,18 +317,18 @@ export async function processDocumentJob(data: ProcessDocumentJobData) {
 export async function saveUploadedFile(
   buffer: Buffer,
   filename: string,
+  contentType?: string,
 ): Promise<string> {
-  // Ensure upload directory exists
-  await fs.mkdir(config.UPLOAD_DIR, { recursive: true });
-
-  // Generate unique filename with proper extension
+  // Generate unique S3 key with extension
   const ext =
-    mime.extension(mime.lookup(filename) || "bin") || path.extname(filename);
+    mime.extension(mime.lookup(filename) || contentType || "bin") ||
+    path.extname(filename);
   const uniqueFilename = `${uuidv4()}.${ext}`;
-  const filePath = path.join(config.UPLOAD_DIR, uniqueFilename);
-
-  // Save file
-  await fs.writeFile(filePath, buffer);
-
-  return filePath;
+  const s3Key = `uploads/${uniqueFilename}`;
+  const s3Url = await uploadToS3(
+    buffer,
+    s3Key,
+    contentType || mime.lookup(filename) || "application/octet-stream",
+  );
+  return s3Url;
 }

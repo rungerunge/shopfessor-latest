@@ -15,6 +15,10 @@ const configSchema = z.object({
   BATCH_SIZE: z.coerce.number().default(50),
   VECTOR_COLLECTION: z.string().default("documents"),
   UPLOAD_DIR: z.string().default("./uploads"),
+  S3_BUCKET: z.string(),
+  S3_REGION: z.string(),
+  S3_ACCESS_KEY_ID: z.string(),
+  S3_SECRET_ACCESS_KEY: z.string(),
 });
 
 function validateConfig() {

@@ -8,10 +8,16 @@ import {
 import { isbot } from "isbot";
 import { addDocumentResponseHeaders } from "./lib/shopify.server";
 import { initializeWorkers } from "app/lib/queues/workers.server";
-import { queueManager } from "app/lib/queues/queue-manager.server";
+import { queueManager } from "app/lib/queue-manager.server";
+import { initializeCollection } from "app/services/qdrant.server";
 
 // 🚀 Initialize background workers once when server starts
 initializeWorkers();
+
+// 🚀 Initialize Qdrant collection once when server starts
+initializeCollection().catch((error) => {
+  console.error("Failed to initialize Qdrant collection:", error);
+});
 
 // ⚠️ Graceful shutdown: Handle termination signals to cleanly close workers
 process.on("SIGTERM", async () => {

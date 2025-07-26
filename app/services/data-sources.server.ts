@@ -4,16 +4,19 @@ import {
   unstable_createMemoryUploadHandler,
 } from "@remix-run/node";
 import { config } from "app/lib/config.server";
-import {
-  saveUploadedFile,
-  generateEmbedding,
-  chunkText,
-} from "app/services/ingestion.server";
+import { generateEmbedding, chunkText } from "app/services/ingestion.server";
 import { addDocumentToQueue } from "app/services/queue.server";
-import { upsertVectors, type DocumentVector } from "app/services/qdrant.server";
+import {
+  upsertVectors,
+  deleteDocumentVectors,
+  type DocumentVector,
+} from "app/services/qdrant.server";
+import { deleteFromS3, uploadToS3 } from "app/lib/s3.server";
 import prisma from "app/lib/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { FileType } from "@prisma/client";
+import mime from "mime-types";
+import path from "path";
 
 // Supported file types for data sources
 const ALLOWED_FILE_TYPES = [
@@ -65,7 +68,16 @@ export async function processFileUpload(request: Request) {
 
     // Convert file to buffer and save
     const buffer = Buffer.from(await file.arrayBuffer());
-    const filePath = await saveUploadedFile(buffer, file.name);
+
+    // Generate S3 key
+    const ext =
+      mime.extension(mime.lookup(file.name) || file.type || "bin") ||
+      path.extname(file.name);
+    const uniqueFilename = `${uuidv4()}.${ext}`;
+    const s3Key = `uploads/${uniqueFilename}`;
+
+    // Upload to S3
+    const fileUrl = await uploadToS3(buffer, s3Key, file.type);
 
     const shopDB = await prisma.shop.findFirst();
     if (!shopDB) {
@@ -82,16 +94,18 @@ export async function processFileUpload(request: Request) {
         fileSize: file.size,
         status: "UPLOADED",
         uploadedBy: "user-mvp-placeholder",
-        fileUrl: filePath,
+        fileUrl: fileUrl,
+        s3Key: s3Key,
+        s3Url: fileUrl,
         mimeType: file.type,
         shopId: shopDB.id,
       },
     });
 
     // Add to processing queue
-    const jobId = await addDocumentToQueue({
+    await addDocumentToQueue({
       documentId: document.id,
-      filePath,
+      filePath: fileUrl,
       filename: file.name,
       contentType: file.type,
     });
@@ -224,4 +238,110 @@ export async function getRecentDataSources(limit: number = 20) {
     },
     take: limit,
   });
+}
+
+export async function deleteDataSource(documentId: string) {
+  try {
+    // Get the document first to extract S3 key and other metadata
+    const document = await prisma.document.findUnique({
+      where: { id: documentId },
+      include: {
+        chunks: true,
+      },
+    });
+
+    if (!document) {
+      throw new Error("Document not found");
+    }
+
+    // Delete from Qdrant vector database
+    try {
+      await deleteDocumentVectors(documentId);
+    } catch (error) {
+      console.error("Failed to delete vectors from Qdrant:", error);
+      // Continue with other deletions even if Qdrant fails
+    }
+
+    // Delete from S3 if s3Key exists
+    if (document.s3Key) {
+      try {
+        await deleteFromS3(document.s3Key);
+      } catch (error) {
+        console.error("Failed to delete file from S3:", error);
+        // Continue with database deletion even if S3 fails
+      }
+    } else if (
+      document.fileUrl &&
+      document.fileUrl.includes("s3.amazonaws.com")
+    ) {
+      // Try to extract S3 key from URL if s3Key is not stored
+      try {
+        const urlParts = document.fileUrl.split("/");
+        const s3Key = urlParts.slice(3).join("/"); // Remove https://bucket.s3.region.amazonaws.com/
+        await deleteFromS3(s3Key);
+      } catch (error) {
+        console.error("Failed to delete file from S3 using URL:", error);
+        // Continue with database deletion even if S3 fails
+      }
+    }
+
+    // Delete from database (this will cascade to chunks due to the relation)
+    await prisma.document.delete({
+      where: { id: documentId },
+    });
+
+    return {
+      success: true,
+      message: "Data source deleted successfully",
+    };
+  } catch (error) {
+    console.error("Error deleting data source:", error);
+    throw error;
+  }
+}
+
+export async function downloadDataSource(documentId: string) {
+  try {
+    const document = await prisma.document.findUnique({
+      where: { id: documentId },
+    });
+
+    if (!document) {
+      throw new Error("Document not found");
+    }
+
+    // If it's a text source, return the extracted text
+    if (document.fileType === FileType.TXT && document.extractedText) {
+      return {
+        success: true,
+        content: document.extractedText,
+        filename: document.originalName,
+        contentType: "text/plain",
+      };
+    }
+
+    // For file sources, return the S3 URL or file URL
+    if (document.s3Url) {
+      return {
+        success: true,
+        url: document.s3Url,
+        filename: document.originalName,
+        contentType: document.mimeType,
+      };
+    }
+
+    if (document.fileUrl && !document.fileUrl.startsWith("text://")) {
+      return {
+        success: true,
+        url: document.fileUrl,
+        filename: document.originalName,
+        contentType: document.mimeType,
+      };
+    }
+
+    throw new Error("No downloadable content found");
+  } catch (error) {
+    console.error("Error downloading data source:", error);
+    throw error;
+  }
 }
