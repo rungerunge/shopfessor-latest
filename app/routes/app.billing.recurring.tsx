@@ -32,7 +32,7 @@ import prisma from "app/lib/db.server";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { getCurrentSubscriptions } from "app/services/billing.server";
 import { PricingCard } from "app/components/Features/Billing/Reccuring/PricingCard";
-import { PromoModal } from "app/components/Features/Billing/Reccuring/PromoModal";
+import { PromoCard } from "app/components/Features/Billing/Reccuring/PromoCard";
 
 // Loader function
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -279,10 +279,25 @@ export default function BillingPage() {
         backAction={{ content: "Settings", url: "/app/billing" }}
       >
         <Layout>
+          <Layout.Section>
+            <PromoCard
+              plans={plans}
+              onSubmit={handlePromoSubmit}
+              isLoading={isCouponLoading}
+              error={couponError}
+              onErrorChange={setCouponError}
+              message={couponMessage}
+              onRemoveCoupon={() => {
+                setCouponMessage(null);
+                setAppliedCoupon(null);
+              }}
+            />
+          </Layout.Section>
+
           {/* Billing Cycle Toggle */}
           <Layout.Section>
             <Box padding={"200"}>
-              <InlineStack align="center" blockAlign="center" gap="400">
+              <InlineStack blockAlign="center" gap="400">
                 <Box
                   background="bg-fill-disabled"
                   padding={"100"}
@@ -307,18 +322,6 @@ export default function BillingPage() {
                     </Button>
                   </InlineStack>
                 </Box>
-                <PromoModal
-                  plans={plans}
-                  onSubmit={handlePromoSubmit}
-                  isLoading={isCouponLoading}
-                  error={couponError}
-                  onErrorChange={setCouponError}
-                  message={couponMessage}
-                  onRemoveCoupon={() => {
-                    setCouponMessage(null);
-                    setAppliedCoupon(null);
-                  }}
-                />
               </InlineStack>
             </Box>
           </Layout.Section>
