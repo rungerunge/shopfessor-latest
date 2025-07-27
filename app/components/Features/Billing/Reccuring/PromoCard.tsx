@@ -7,12 +7,9 @@ import {
   Text,
   Select,
   TextField,
-  InlineError,
-  Icon,
-  Card,
-  Banner,
+  InlineError, Card,
+  Banner
 } from "@shopify/polaris";
-import { ProductFilledIcon, XIcon } from "@shopify/polaris-icons";
 import type { Plan } from "@prisma/client";
 
 export function PromoCard({
