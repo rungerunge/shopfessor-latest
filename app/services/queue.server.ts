@@ -69,3 +69,26 @@ export async function getQueueStats() {
     failed: failed.length,
   };
 }
+
+export async function getJobStatus(jobId: string) {
+  const documentQueue = queueManager.getQueue("process-document");
+
+  try {
+    const job = await documentQueue.getJob(jobId);
+    if (!job) {
+      return { status: 'not_found', progress: 0 };
+    }
+
+    const state = await job.getState();
+    const progress = await job.progress;
+
+    return {
+      status: state,
+      progress: typeof progress === 'number' ? progress : 0,
+      data: job.data,
+    };
+  } catch (error) {
+    console.error('Error getting job status:', error);
+    return { status: 'error', progress: 0 };
+  }
+}

@@ -28,6 +28,7 @@ interface DataSourceFormProps {
   onFilesChange: (files: FileData[]) => void;
   onStartProcessing: () => void;
   canProcess: boolean;
+  isLoading?: boolean;
 }
 
 const tabs = [
@@ -62,6 +63,7 @@ export function DataSourceForm({
   onFilesChange,
   onStartProcessing,
   canProcess,
+  isLoading,
 }: DataSourceFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -167,8 +169,9 @@ export function DataSourceForm({
                       Drop documents here or click to upload
                     </Text>
                     <Text as="p" variant="bodySm" tone="subdued">
-                      Supports PDF, DOC, DOCX, TXT, RTF, CSV, XLS, XLSX and
-                      other document formats
+                      Supports PDF, Word documents, Excel
+                      files, Text files, RTF, and more. Maximum file size: 50MB per
+                      file.
                     </Text>
                   </BlockStack>
                 )}
@@ -263,9 +266,10 @@ export function DataSourceForm({
                 <InlineStack align="end">
                   <Button
                     variant="primary"
-                    disabled={!canProcess}
+                    disabled={!canProcess || isLoading}
                     onClick={onStartProcessing}
                     submit
+                    loading={isLoading}
                   >
                     Start Processing
                   </Button>
