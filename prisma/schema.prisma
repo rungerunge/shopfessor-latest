@@ -124,7 +124,6 @@ model Shop {
   subscriptions    Subscription[]
   oneTimePurchases OneTimePurchase[]
   usageCharges     UsageCharge[]
-  couponUsages     CouponUsage[]
   userActivities   UserActivity[]
   document         Document[]
 
@@ -190,9 +189,8 @@ model OneTimePurchase {
   planId String?
 
   // Relations
-  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  plan         Plan?         @relation(fields: [planId], references: [id])
-  couponUsages CouponUsage[]
+  shop Shop  @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  plan Plan? @relation(fields: [planId], references: [id])
 
   @@index([status])
   @@index([shopId])
@@ -234,7 +232,6 @@ model Subscription {
   shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
   plan         Plan?         @relation(fields: [planId], references: [id])
   usageCharges UsageCharge[]
-  couponUsages CouponUsage[]
 
   @@index([status])
   @@index([shopId])
@@ -266,7 +263,6 @@ model UsageCharge {
   shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
   plan         Plan?         @relation(fields: [planId], references: [id])
   subscription Subscription? @relation(fields: [subscriptionId], references: [id])
-  couponUsages CouponUsage[]
 
   @@index([shopId])
   @@index([subscriptionId])
@@ -298,36 +294,9 @@ model Coupon {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  // Relations
-  couponUsages CouponUsage[]
-
   @@index([code])
   @@index([active, expiresAt])
   @@map("coupons")
-}
-
-model CouponUsage {
-  id     String    @id @default(uuid())
-  shop   String
-  usedAt DateTime?
-
-  // Link to different billing types
-  oneTimePurchaseId String?
-  subscriptionId    String?
-  usageChargeId     String?
-
-  // Foreign Keys
-  couponId String
-
-  // Relations
-  coupon          Coupon           @relation(fields: [couponId], references: [id])
-  shopModel       Shop             @relation(fields: [shop], references: [shop])
-  oneTimePurchase OneTimePurchase? @relation(fields: [oneTimePurchaseId], references: [id])
-  subscription    Subscription?    @relation(fields: [subscriptionId], references: [id])
-  usageCharge     UsageCharge?     @relation(fields: [usageChargeId], references: [id])
-
-  @@unique([couponId, shop])
-  @@map("coupon_usages")
 }
 
 model UserActivity {

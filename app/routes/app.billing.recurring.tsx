@@ -30,7 +30,7 @@ import {
 import type { AppliedCouponData } from "app/types/coupon";
 import prisma from "app/lib/db.server";
 import { useAppBridge } from "@shopify/app-bridge-react";
-import { getCurrentSubscriptions } from "app/models/billing.server";
+import { getCurrentSubscriptions } from "app/services/billing.server";
 import { PricingCard } from "app/components/Features/Billing/Reccuring/PricingCard";
 import { PromoModal } from "app/components/Features/Billing/Reccuring/PromoModal";
 

@@ -137,7 +137,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         logger.info(
           `Tracking coupon usage for updated subscription: ${existingSubscription.id}`,
         );
-        await trackCouponUsage(request, shop, shopModel.id);
       }
     } else {
       // Create new subscription
@@ -163,7 +162,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         logger.info(
           `Tracking coupon usage for new subscription: ${newSubscription.id}`,
         );
-        await trackCouponUsage(admin, shop, shopModel.id);
       }
     }
 
@@ -177,144 +175,5 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   } catch (error) {
     logger.error("Error in subscription webhook handler:", error);
     return new Response("Internal Server Error", { status: 500 });
-  }
-};
-
-/**
- * Tracks coupon usage by querying Shopify's GraphQL API for active subscriptions
- * and matching them with coupons in our local database.
- *
- * LIMITATION: Shopify's AppSubscription GraphQL API doesn't provide the actual coupon code,
- * only the discount type and amount. This makes it challenging to accurately match
- * subscriptions with specific coupons in our database.
- *
- * @param admin - Shopify Admin API client
- * @param shopDomain - The shop domain
- * @param shopId - The shop ID from our database
- */
-const trackCouponUsage = async (
-  request: any,
-  shopDomain: string,
-  shopId: string,
-) => {
-  try {
-    logger.info(
-      `Starting coupon usage tracking for shop: ${shopDomain}, shopId: ${shopId}`,
-    );
-
-    const { subscriptions } = await getCurrentSubscriptions(request);
-
-    // Process each active subscription
-    for (const sub of subscriptions) {
-      const shopifySubscriptionId = sub.id;
-
-      // Find the corresponding subscription in our local database
-      const existingSubscription = await prisma.subscription.findFirst({
-        where: { shopifyId: shopifySubscriptionId },
-      });
-
-      if (!existingSubscription) {
-        logger.warn(
-          `Subscription with shopifyId ${shopifySubscriptionId} not found in local DB. Skipping coupon tracking.`,
-        );
-        continue;
-      }
-
-      logger.info(
-        `Processing subscription: ${existingSubscription.id} (Shopify ID: ${shopifySubscriptionId})`,
-      );
-
-      // Check each line item for discounts
-      for (const item of sub.lineItems) {
-        const discount = item.plan.pricingDetails?.discount;
-
-        if (!discount) {
-          logger.info(`No discount found for line item ${item.id}`);
-          continue;
-        }
-
-        // Determine the coupon type based on Shopify's discount structure
-        let couponType: "FIXED" | "PERCENTAGE" | null = null;
-        let discountValue: number | null = null;
-
-        if (discount.value.__typename === "AppSubscriptionDiscountAmount") {
-          couponType = "FIXED";
-          discountValue = parseFloat(discount.value.amount.amount);
-        } else if (
-          discount.value.__typename === "AppSubscriptionDiscountPercentage"
-        ) {
-          couponType = "PERCENTAGE";
-          discountValue = discount.value.percentage;
-        }
-
-        if (couponType === null) {
-          logger.info(`Unknown discount type for line item ${item.id}`);
-          continue;
-        }
-
-        logger.info(
-          `Found ${couponType} discount of ${discountValue} for line item ${item.id}`,
-        );
-
-        // CRITICAL LIMITATION: Shopify doesn't provide the actual coupon code
-        // We can only match by type and potentially by discount value, which is unreliable
-        // TODO: Consider enhancing this by:
-        // 1. Storing coupon codes in subscription metadata when initially applied
-        // 2. Using subscription names if they contain coupon codes
-        // 3. Implementing a more sophisticated matching algorithm
-
-        const coupon = await prisma.coupon.findFirst({
-          where: {
-            type: couponType,
-            active: true,
-            // Additional matching criteria could be added here if available
-            // For example: discountAmount: discountValue (for FIXED coupons)
-            // or discountPercentage: discountValue (for PERCENTAGE coupons)
-          },
-          orderBy: { createdAt: "desc" }, // Get the most recent matching coupon
-        });
-
-        if (!coupon) {
-          logger.warn(
-            `No active coupon found in local DB matching type '${couponType}' with value ${discountValue}. Cannot track usage without a specific coupon code.`,
-          );
-          continue;
-        }
-
-        // Check if coupon usage is already tracked for this subscription
-        const existingUsage = await prisma.couponUsage.findFirst({
-          where: {
-            couponId: coupon.id,
-            shop: shopDomain,
-            subscriptionId: existingSubscription.id,
-          },
-        });
-
-        if (existingUsage) {
-          logger.info(
-            `Coupon usage already tracked for subscription ${existingSubscription.id} with coupon ${coupon.code}.`,
-          );
-          continue;
-        }
-
-        // Create new coupon usage record
-        await prisma.couponUsage.create({
-          data: {
-            couponId: coupon.id,
-            shop: shopDomain,
-            subscriptionId: existingSubscription.id,
-            usedAt: new Date(),
-          },
-        });
-
-        logger.info(
-          `Successfully tracked coupon usage for subscription ${existingSubscription.id} with coupon ${coupon.code} (Type: ${coupon.type}, Value: ${discountValue}).`,
-        );
-      }
-    }
-  } catch (error) {
-    logger.error("Error in trackCouponUsage:", error);
-    // Don't throw the error to prevent webhook processing failure
-    // Coupon tracking is supplementary functionality
   }
 };

@@ -13,13 +13,6 @@ export interface Coupon {
   updatedAt: Date;
 }
 
-export interface CouponUsage {
-  id: string;
-  couponId: string;
-  subscriptionId: string;
-  usedAt: Date;
-}
-
 export interface Shop {
   id: string;
   shop: string;

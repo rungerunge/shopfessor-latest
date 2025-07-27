@@ -33,7 +33,7 @@ import { PlanSelection } from "app/components/Features/Billing/Usage/PlanSection
 import { UsageRecordForm } from "app/components/Features/Billing/Usage/UsageRecordForm";
 import { LoaderData, UsageActivity } from "app/types/billing";
 import prisma from "app/lib/db.server";
-import { getCurrentSubscriptions } from "app/models/billing.server";
+import { getCurrentSubscriptions } from "app/services/billing.server";
 
 // Simulated usage activity types
 const USAGE_ACTIVITIES: UsageActivity[] = [

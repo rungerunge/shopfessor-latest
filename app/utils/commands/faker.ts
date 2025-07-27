@@ -16,7 +16,6 @@ function generateRecentDate(baseDate = new Date()) {
 
 async function clearDatabase() {
   await prisma.userActivity.deleteMany();
-  await prisma.couponUsage.deleteMany();
   await prisma.coupon.deleteMany();
   await prisma.charge.deleteMany();
   await prisma.subscription.deleteMany();
@@ -228,7 +227,9 @@ async function createShopsAndRelatedData(
         const chargeCreatedAt = generateRecentDate(shop.createdAt);
         await prisma.charge.create({
           data: {
-            shopifyChargeId: faker.number.int({ min: 1000000, max: 9999999 }),
+            usageChargeId: faker.number
+              .int({ min: 1000000, max: 9999999 })
+              .toString(),
             status: faker.helpers.arrayElement([
               "PENDING",
               "COMPLETED",
@@ -248,26 +249,6 @@ async function createShopsAndRelatedData(
               : null,
             createdAt: chargeCreatedAt,
             updatedAt: generateRecentDate(chargeCreatedAt),
-          },
-        });
-      }
-
-      if (faker.datatype.boolean()) {
-        const selectedCoupon = faker.helpers.arrayElement(coupons);
-        const couponUsageCreatedAt = generateRecentDate(shop.createdAt);
-        await prisma.couponUsage.create({
-          data: {
-            coupon: {
-              connect: { id: selectedCoupon.id },
-            },
-
-            shopModel: {
-              connect: { id: shop.id },
-            },
-            usedAt: couponUsageCreatedAt,
-            shopifyChargeId: BigInt(
-              faker.number.int({ min: 1000000, max: 9999999 }),
-            ),
           },
         });
       }
