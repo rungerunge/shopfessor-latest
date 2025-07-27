@@ -115,18 +115,10 @@ export function DataSourceForm({
   );
 
   const renderTabContent = () => {
-    const tabContentStyle = {
-      minHeight: "240px",
-      overflow: "auto" as const,
-      display: "flex",
-      flexDirection: "column" as const,
-      gap: "14px",
-    };
-
     switch (selectedTab) {
-      case 0: // Documents
+      case 0:
         return (
-          <div style={tabContentStyle}>
+          <BlockStack gap={"400"}>
             <input
               ref={fileInputRef}
               type="file"
@@ -179,19 +171,20 @@ export function DataSourceForm({
                 )}
               </Box>
             </DropZone>
-          </div>
+          </BlockStack>
         );
-      case 1: // Text
+      case 1:
         return (
-          <div style={tabContentStyle}>
+          <BlockStack gap={"400"}>
             <TextField
-              label="Text Content"
+              label={null}
               value={textInput}
               onChange={onTextInputChange}
-              multiline={8}
-              placeholder="Enter your text content here...&#10;&#10;You can paste:&#10;• Articles or blog posts&#10;• Documentation&#10;• Notes or instructions&#10;• Any other text-based content"
+              multiline={6}
+              placeholder="Enter your text content here..."
               helpText="Paste or type the raw text content you want to add as a data source"
               autoComplete="off"
+              maxHeight={"120px"}
             />
 
             {textInput.length > 0 && (
@@ -214,11 +207,11 @@ export function DataSourceForm({
                 </Text>
               </Banner>
             )}
-          </div>
+          </BlockStack>
         );
-      case 2: // URLs
+      case 2:
         return (
-          <div style={tabContentStyle}>
+          <BlockStack gap={"400"}>
             <TextField
               label="Website URL"
               value={urlInput}
@@ -234,7 +227,7 @@ export function DataSourceForm({
                 Media files and dynamic content may not be included.
               </Text>
             </Banner>
-          </div>
+          </BlockStack>
         );
 
       default:
@@ -253,7 +246,7 @@ export function DataSourceForm({
           <Tabs tabs={tabs} selected={selectedTab} onSelect={onTabChange}>
             <LegacyCard.Section>
               <BlockStack gap="400">
-                {renderTabContent()}
+                <div style={{ height: "140px" }}>{renderTabContent()}</div>
 
                 <InlineStack align="end">
                   <Button
@@ -262,7 +255,6 @@ export function DataSourceForm({
                     onClick={onStartProcessing}
                     submit
                     loading={isLoading}
-                    size="large"
                   >
                     Start Processing
                   </Button>
