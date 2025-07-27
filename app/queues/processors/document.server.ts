@@ -1,6 +1,6 @@
 import { Job } from "bullmq";
 import { ProcessDocumentJobData } from "app/types/queue";
-import { processDocumentJob } from "app/services/ingestion.server";
+import { processDocumentJob } from "app/services/knowledge-base/ingestion.server";
 import logger from "app/utils/logger";
 
 export async function processDocumentJobHandler(

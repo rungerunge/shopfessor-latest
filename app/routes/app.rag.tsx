@@ -13,7 +13,7 @@ import {
   processFileUpload,
   processTextContent,
   getRecentDataSources,
-} from "app/services/data-sources.server";
+} from "app/services/knowledge-base/data-sources.server";
 import { getQueueStats } from "app/services/queue.server";
 import { useAppBridge } from "@shopify/app-bridge-react";
 
