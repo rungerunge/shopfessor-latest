@@ -1,4 +1,3 @@
-// shared/document.server.ts
 import { v4 as uuidv4 } from "uuid";
 import { encoding_for_model } from "tiktoken";
 import prisma from "app/lib/db.server";

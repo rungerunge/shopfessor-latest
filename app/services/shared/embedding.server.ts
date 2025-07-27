@@ -1,4 +1,3 @@
-// shared/embedding.server.ts
 import OpenAI from "openai";
 import pLimit from "p-limit";
 import { config } from "app/lib/config.server";
@@ -8,7 +7,6 @@ const openai = new OpenAI({ apiKey: config.OPENAI_API_KEY });
 const embeddingLimit = pLimit(5);
 
 export async function generateEmbedding(text: string): Promise<number[]> {
-  console.log("🧮 🧮 🧮 🧮 🧮 ", text);
   return embeddingLimit(async () => {
     try {
       const response = await openai.embeddings.create({

@@ -11,7 +11,6 @@ import {
   DataSourceForm,
   ProcessingQueue,
   DataSourceList,
-  EditModal,
 } from "app/components/Features/DataSources";
 import { DataSource, ProcessingItem, FileData } from "app/types/data-sources";
 import {
@@ -99,8 +98,6 @@ export default function KnowledgeBase() {
   const [files, setFiles] = useState<FileData[]>([]);
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [processingQueue, setProcessingQueue] = useState<ProcessingItem[]>([]);
-  const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [editingSource, setEditingSource] = useState<DataSource | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const shopify = useAppBridge();
 
@@ -406,23 +403,6 @@ export default function KnowledgeBase() {
     setDataSources((prev) => prev.filter((source) => source.id !== id));
   }, []);
 
-  const handleEditSource = useCallback((source: DataSource) => {
-    setEditingSource(source);
-    setActiveModal("edit");
-  }, []);
-
-  const handleSaveEdit = useCallback(() => {
-    if (editingSource) {
-      setDataSources((prev) =>
-        prev.map((source) =>
-          source.id === editingSource.id ? editingSource : source,
-        ),
-      );
-    }
-    setActiveModal(null);
-    setEditingSource(null);
-  }, [editingSource]);
-
   // Clear form after successful submission
   const clearForm = useCallback(() => {
     setFiles([]);
@@ -542,19 +522,9 @@ export default function KnowledgeBase() {
           <DataSourceList
             dataSources={dataSources}
             onDeleteSource={handleDeleteSource}
-            onEditSource={handleEditSource}
           />
         </Layout.Section>
       </Layout>
-
-      {/* Edit Modal */}
-      <EditModal
-        open={activeModal === "edit"}
-        editingSource={editingSource}
-        onClose={() => setActiveModal(null)}
-        onSave={handleSaveEdit}
-        onSourceChange={setEditingSource}
-      />
     </Page>
   );
 }

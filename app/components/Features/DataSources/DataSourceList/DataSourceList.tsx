@@ -23,7 +23,6 @@ import {
   FileIcon,
   TextIcon,
   DeleteIcon,
-  EditIcon,
   CheckIcon,
   SearchIcon,
   FilterIcon,
@@ -35,7 +34,6 @@ import { DataSource } from "app/types/data-sources";
 interface DataSourceListProps {
   dataSources: DataSource[];
   onDeleteSource: (id: string) => void;
-  onEditSource: (source: DataSource) => void;
   loading?: boolean;
 }
 
@@ -46,7 +44,6 @@ const MAX_CONTENT_PREVIEW_LENGTH = 120;
 export function DataSourceList({
   dataSources,
   onDeleteSource,
-  onEditSource,
   loading = false,
 }: DataSourceListProps) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -208,7 +205,7 @@ export function DataSourceList({
               Data Sources
             </Text>
             <Badge tone="info">
-              {filteredSources.length} of {dataSources.length} sources
+              {`${filteredSources.length} of ${dataSources.length} sources`}
             </Badge>
           </InlineStack>
 
@@ -338,15 +335,6 @@ export function DataSourceList({
                     </InlineStack>
 
                     <ButtonGroup>
-                      <Tooltip content="Edit source">
-                        <Button
-                          size="slim"
-                          variant="tertiary"
-                          icon={EditIcon}
-                          onClick={() => onEditSource(source)}
-                          accessibilityLabel={`Edit ${source.name}`}
-                        />
-                      </Tooltip>
                       <Tooltip content="Delete source">
                         <Button
                           size="slim"

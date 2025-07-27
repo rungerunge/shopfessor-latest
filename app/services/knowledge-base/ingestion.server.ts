@@ -1,4 +1,3 @@
-// ingestion.server.ts (refactored)
 // @ts-ignore
 import * as pdfParse from "pdf-parse/lib/pdf-parse.js";
 import mammoth from "mammoth";
