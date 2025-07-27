@@ -22,7 +22,7 @@ export interface ProcessingItem {
   progress: number;
   stage: string;
   startTime: number;
-  status: 'waiting' | 'processing' | 'completed' | 'failed';
+  status: "waiting" | "processing" | "completed" | "failed";
   error?: string;
 }
 

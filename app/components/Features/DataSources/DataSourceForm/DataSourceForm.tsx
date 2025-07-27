@@ -169,9 +169,8 @@ export function DataSourceForm({
                       Drop documents here or click to upload
                     </Text>
                     <Text as="p" variant="bodySm" tone="subdued">
-                      Supports PDF, Word documents, Excel
-                      files, Text files, RTF, and more. Maximum file size: 50MB per
-                      file.
+                      Supports PDF, Word documents, Excel files, Text files,
+                      RTF, and more. Maximum file size: 50MB per file.
                     </Text>
                   </BlockStack>
                 )}

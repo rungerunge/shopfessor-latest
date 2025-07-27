@@ -1,4 +1,3 @@
-
 // ingestion.server.ts (refactored)
 // @ts-ignore
 import * as pdfParse from "pdf-parse/lib/pdf-parse.js";
@@ -16,12 +15,12 @@ import logger from "app/utils/logger";
 import { DocumentStatus } from "@prisma/client";
 import {
   updateDocumentStatus,
-  processChunksToVectors
+  processChunksToVectors,
 } from "../shared/document.server";
 import {
   readFileFromPath,
   cleanupFile,
-  saveUploadedFile
+  saveUploadedFile,
 } from "../shared/file-utils.server";
 
 const encoder = encoding_for_model("gpt-3.5-turbo");
@@ -178,7 +177,7 @@ export async function processDocumentJob(data: ProcessDocumentJobData) {
       documentId,
       filename,
       contentType,
-      uploadedBy
+      uploadedBy,
     );
 
     await updateDocumentStatus(documentId, "PROCESSED", {

@@ -8,7 +8,13 @@ import {
   Icon,
   Spinner,
 } from "@shopify/polaris";
-import { LinkIcon, FileIcon, TextIcon, CheckIcon, XCircleIcon } from "@shopify/polaris-icons";
+import {
+  LinkIcon,
+  FileIcon,
+  TextIcon,
+  CheckIcon,
+  XCircleIcon,
+} from "@shopify/polaris-icons";
 import { ProcessingItem } from "app/types/data-sources";
 import { useEffect, useState } from "react";
 
@@ -16,9 +22,7 @@ interface ProcessingQueueProps {
   processingQueue: ProcessingItem[];
 }
 
-export function ProcessingQueue({
-  processingQueue,
-}: ProcessingQueueProps) {
+export function ProcessingQueue({ processingQueue }: ProcessingQueueProps) {
   if (processingQueue.length === 0) {
     return null;
   }
@@ -30,42 +34,42 @@ export function ProcessingQueue({
     return FileIcon;
   };
 
-  const getStatusIcon = (status: ProcessingItem['status']) => {
+  const getStatusIcon = (status: ProcessingItem["status"]) => {
     switch (status) {
-      case 'completed':
+      case "completed":
         return CheckIcon;
-      case 'failed':
+      case "failed":
         return XCircleIcon;
-      case 'processing':
+      case "processing":
         return Spinner;
       default:
         return undefined;
     }
   };
 
-  const getStatusTone = (status: ProcessingItem['status']) => {
+  const getStatusTone = (status: ProcessingItem["status"]) => {
     switch (status) {
-      case 'completed':
-        return 'success';
-      case 'failed':
-        return 'critical';
-      case 'processing':
-        return 'info';
+      case "completed":
+        return "success";
+      case "failed":
+        return "critical";
+      case "processing":
+        return "info";
       default:
-        return 'attention';
+        return "attention";
     }
   };
 
-  const getProgressColor = (status: ProcessingItem['status']) => {
+  const getProgressColor = (status: ProcessingItem["status"]) => {
     switch (status) {
-      case 'completed':
-        return 'success';
-      case 'failed':
-        return 'critical';
-      case 'processing':
-        return 'info';
+      case "completed":
+        return "success";
+      case "failed":
+        return "critical";
+      case "processing":
+        return "info";
       default:
-        return 'base';
+        return "base";
     }
   };
 
@@ -99,13 +103,11 @@ export function ProcessingQueue({
                   </InlineStack>
 
                   <InlineStack gap="200" align="center">
-                    {item.status === 'processing' && (
-                      <Spinner size="small" />
-                    )}
-                    {item.status === 'completed' && (
+                    {item.status === "processing" && <Spinner size="small" />}
+                    {item.status === "completed" && (
                       <Icon source={CheckIcon} tone="success" />
                     )}
-                    {item.status === 'failed' && (
+                    {item.status === "failed" && (
                       <Icon source={XCircleIcon} tone="critical" />
                     )}
                     <Badge tone={getStatusTone(item.status)}>
@@ -115,17 +117,13 @@ export function ProcessingQueue({
                 </InlineStack>
 
                 <BlockStack gap="200">
-                                    <ProgressBar
-                    progress={item.progress}
-                    size="small"
-                  />
+                  <ProgressBar progress={item.progress} size="small" />
                   <Text as="p" variant="bodySm" tone="subdued">
-                    {item.status === 'completed'
-                      ? 'Processing completed successfully'
-                      : item.status === 'failed'
-                      ? `Failed: ${item.error || 'Unknown error'}`
-                      : `${Math.round(item.progress)}% complete`
-                    }
+                    {item.status === "completed"
+                      ? "Processing completed successfully"
+                      : item.status === "failed"
+                        ? `Failed: ${item.error || "Unknown error"}`
+                        : `${Math.round(item.progress)}% complete`}
                   </Text>
                 </BlockStack>
               </BlockStack>

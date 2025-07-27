@@ -13,7 +13,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         active: 0,
         completed: 0,
         failed: 0,
-      }
+      },
     });
   }
 }

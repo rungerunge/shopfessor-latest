@@ -44,8 +44,8 @@ export async function createDocumentRecord(data: {
 
 function sanitizeText(text: string): string {
   return text
-    .replace(/\0/g, '') // Remove null bytes
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove other control characters
+    .replace(/\0/g, "") // Remove null bytes
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "") // Remove other control characters
     .trim();
 }
 
@@ -87,7 +87,12 @@ export async function processChunksToVectors(
     const embedding = await generateEmbedding(sanitizedText);
 
     // Create chunk in database
-    await createDocumentChunk(vectorId, documentId, { ...chunk, text: sanitizedText }, i);
+    await createDocumentChunk(
+      vectorId,
+      documentId,
+      { ...chunk, text: sanitizedText },
+      i,
+    );
 
     // Create vector for Qdrant
     vectors.push({

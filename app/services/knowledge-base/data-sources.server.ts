@@ -1,5 +1,3 @@
-
-
 // data-sources.server.ts (refactored)
 import {
   json,
@@ -9,9 +7,7 @@ import {
 import { config } from "app/lib/config.server";
 import { chunkText } from "./ingestion.server";
 import { addDocumentToQueue } from "app/services/queue.server";
-import {
-  deleteDocumentVectors,
-} from "app/services/qdrant.server";
+import { deleteDocumentVectors } from "app/services/qdrant.server";
 import { deleteFromS3, uploadToS3 } from "app/lib/s3.server";
 import prisma from "app/lib/db.server";
 import { v4 as uuidv4 } from "uuid";
@@ -20,7 +16,7 @@ import mime from "mime-types";
 import path from "path";
 import {
   createDocumentRecord,
-  processChunksToVectors
+  processChunksToVectors,
 } from "../shared/document.server";
 
 const ALLOWED_FILE_TYPES = [
@@ -132,7 +128,7 @@ export async function processTextContent(text: string, sourceName: string) {
       document.id,
       `${sourceName}.txt`,
       "text/plain",
-      "user-mvp-placeholder"
+      "user-mvp-placeholder",
     );
 
     // Update document status to PROCESSED
