@@ -36,19 +36,22 @@ const tabs = [
     id: "documents-tab",
     content: "Documents / Files",
     accessibilityLabel: "Upload documents and files",
-    panelID: "documents-panel",
+    panelID: "data-source-1",
   },
-  {
-    id: "urls-tab",
-    content: "Website URLs",
-    accessibilityLabel: "Add website URLs",
-    panelID: "urls-panel",
-  },
+
   {
     id: "text-tab",
     content: "Raw Text",
     accessibilityLabel: "Add raw text content",
-    panelID: "text-panel",
+    panelID: "data-source-2",
+  },
+  {
+    id: "urls-tab",
+    content: "Website URLs (soon)",
+    accessibilityLabel: "Add website URLs",
+    panelID: "data-source-3",
+
+    disabled: true,
   },
 ];
 
@@ -176,39 +179,9 @@ export function DataSourceForm({
                 )}
               </Box>
             </DropZone>
-
-            <Banner tone="info">
-              <Text as="p" variant="bodySm">
-                <strong>Supported formats:</strong> PDF, Word documents, Excel
-                files, Text files, RTF, and more. Maximum file size: 50MB per
-                file.
-              </Text>
-            </Banner>
           </div>
         );
-
-      case 1: // URLs
-        return (
-          <div style={tabContentStyle}>
-            <TextField
-              label="Website URL"
-              value={urlInput}
-              onChange={onUrlInputChange}
-              placeholder="https://example.com"
-              helpText="Enter the complete website URL you want to process"
-              autoComplete="url"
-            />
-
-            <Banner tone="info">
-              <Text as="p" variant="bodySm">
-                <strong>Note:</strong> Processing extracts text content only.
-                Media files and dynamic content may not be included.
-              </Text>
-            </Banner>
-          </div>
-        );
-
-      case 2: // Text
+      case 1: // Text
         return (
           <div style={tabContentStyle}>
             <TextField
@@ -243,6 +216,26 @@ export function DataSourceForm({
             )}
           </div>
         );
+      case 2: // URLs
+        return (
+          <div style={tabContentStyle}>
+            <TextField
+              label="Website URL"
+              value={urlInput}
+              onChange={onUrlInputChange}
+              placeholder="https://example.com"
+              helpText="Enter the complete website URL you want to process"
+              autoComplete="url"
+            />
+
+            <Banner tone="info">
+              <Text as="p" variant="bodySm">
+                <strong>Note:</strong> Processing extracts text content only.
+                Media files and dynamic content may not be included.
+              </Text>
+            </Banner>
+          </div>
+        );
 
       default:
         return null;
@@ -269,6 +262,7 @@ export function DataSourceForm({
                     onClick={onStartProcessing}
                     submit
                     loading={isLoading}
+                    size="large"
                   >
                     Start Processing
                   </Button>
