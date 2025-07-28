@@ -260,7 +260,7 @@ export default function Index() {
                   tone="subdued"
                   alignment="center"
                 >
-                  Built with ❤️ using ShopiFast • Ready to scale your business
+                  Built with ❤️ & ShopiFast • Happy Hacking!
                 </Text>
               </Box>
             </Card>

@@ -24,7 +24,7 @@ import {
   getCurrentSubscriptions,
   createAppSubscription,
   cancelAppSubscription,
-} from "app/models/billing.server";
+} from "app/services/billing.server";
 
 // Enhanced interfaces with proper TypeScript support
 interface Subscription {

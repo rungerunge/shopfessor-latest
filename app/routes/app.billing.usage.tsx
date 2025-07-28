@@ -33,7 +33,7 @@ import { PlanSelection } from "app/components/Features/Billing/Usage/PlanSection
 import { UsageRecordForm } from "app/components/Features/Billing/Usage/UsageRecordForm";
 import { LoaderData, UsageActivity } from "app/types/billing";
 import prisma from "app/lib/db.server";
-import { getCurrentSubscriptions } from "app/models/billing.server";
+import { getCurrentSubscriptions } from "app/services/billing.server";
 
 // Simulated usage activity types
 const USAGE_ACTIVITIES: UsageActivity[] = [
@@ -85,7 +85,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const { subscriptions, errors } = await getCurrentSubscriptions(request);
 
     if (subscriptions.length > 0) {
+      console.log("🔥 ", JSON.stringify(subscriptions[0]));
       currentSubscription = subscriptions[0];
+
       subscriptionData.planName = currentSubscription.name;
       subscriptionData.status = currentSubscription.status;
       subscriptionData.currentPeriodEnd = currentSubscription.currentPeriodEnd;
@@ -429,19 +431,18 @@ export default function UsageSubscriptionPage() {
         backAction={{ content: "Billing", url: "/app/billing" }}
       >
         <Layout>
-          {/* Current Subscription Status */}
-          {currentSubscription && (
-            <Layout.Section>
+          <Layout.Section>
+            {/* Current Subscription Status */}
+            {currentSubscription && (
               <SubscriptionStatusCard
                 subscriptionData={subscriptionData}
                 monthlyUsage={monthlyUsage}
               />
-            </Layout.Section>
-          )}
-
-          {/* Create Usage Record */}
-          {currentSubscription && (
-            <Layout.Section>
+            )}
+          </Layout.Section>
+          <Layout.Section variant="oneThird">
+            {/* Create Usage Record */}
+            {currentSubscription && (
               <UsageRecordForm
                 activities={USAGE_ACTIVITIES}
                 selectedActivity={selectedActivity}
@@ -458,8 +459,8 @@ export default function UsageSubscriptionPage() {
                 isLoading={isUsageLoading}
                 isDisabled={!usageLineItemId}
               />
-            </Layout.Section>
-          )}
+            )}
+          </Layout.Section>
 
           {/* Usage Records Table */}
           {currentSubscription && (

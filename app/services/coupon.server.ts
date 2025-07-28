@@ -117,27 +117,6 @@ export const verifyCoupon = async (
       return { success: false, error: "Shop not found." };
     }
 
-    // 4. Check usage limits (by shopId)
-    const [totalUsage, shopUsage] = await Promise.all([
-      getCouponUsageCount(coupon.id),
-      getShopCouponUsageCount(coupon.id, shop.id),
-    ]);
-
-    if (coupon.usageLimit !== null && totalUsage >= coupon.usageLimit) {
-      return {
-        success: false,
-        error: "This coupon has reached its maximum usage limit.",
-      };
-    }
-
-    if (coupon.shopUsageLimit !== null && shopUsage >= coupon.shopUsageLimit) {
-      return {
-        success: false,
-        error:
-          "This shop has already used this coupon the maximum number of times.",
-      };
-    }
-
     // 5. Calculate discount and construct success response
     const discountResult = calculateDiscount(coupon, plan, purchaseContext);
 
@@ -273,46 +252,6 @@ const calculateDiscount = (
 };
 
 /**
- * Gets total usage count for a coupon
- */
-const getCouponUsageCount = async (couponId: string): Promise<number> => {
-  try {
-    return await prisma.couponUsage.count({
-      where: {
-        couponId,
-        usedAt: { not: null }, // Only count actually used coupons
-      },
-    });
-  } catch (error) {
-    console.error("Error getting coupon usage count:", error);
-    return 0;
-  }
-};
-
-/**
- * Gets usage count for a specific shop and coupon
- */
-const getShopCouponUsageCount = async (
-  couponId: string,
-  shopId: string,
-): Promise<number> => {
-  try {
-    const shop = await getShopById(shopId);
-    if (!shop) return 0;
-    return await prisma.couponUsage.count({
-      where: {
-        couponId,
-        shop: shop.shop, // couponUsage.shop is shop domain
-        usedAt: { not: null }, // Only count actually used coupons
-      },
-    });
-  } catch (error) {
-    console.error("Error getting shop coupon usage count:", error);
-    return 0;
-  }
-};
-
-/**
  * Gets shop by domain
  */
 const getShopByDomain = async (
@@ -328,58 +267,5 @@ const getShopByDomain = async (
   } catch (error) {
     console.error("Error getting shop by domain:", error);
     return null;
-  }
-};
-
-/**
- * Gets shop by id
- */
-const getShopById = async (shopId: string): Promise<ShopWithId | null> => {
-  try {
-    return await prisma.shop.findUnique({
-      where: { id: shopId },
-    });
-  } catch (error) {
-    console.error("Error getting shop by id:", error);
-    return null;
-  }
-};
-
-/**
- * Records coupon usage - call this after successful purchase
- */
-export const recordCouponUsage = async (
-  couponId: string,
-  shopId: string,
-  shopDomain: string,
-  purchaseId: string,
-  purchaseType: PurchaseContext["type"],
-): Promise<void> => {
-  try {
-    const usageData: any = {
-      couponId,
-      shop: shopDomain,
-      usedAt: new Date(),
-    };
-
-    // Link to the appropriate purchase type
-    switch (purchaseType) {
-      case "ONETIME":
-        usageData.oneTimePurchaseId = purchaseId;
-        break;
-      case "SUBSCRIPTION":
-        usageData.subscriptionId = purchaseId;
-        break;
-      case "USAGE_BASED":
-        usageData.usageChargeId = purchaseId;
-        break;
-    }
-
-    await prisma.couponUsage.create({
-      data: usageData,
-    });
-  } catch (error) {
-    console.error("Error recording coupon usage:", error);
-    throw error;
   }
 };

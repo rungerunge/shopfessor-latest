@@ -13,6 +13,9 @@ import {
 import { CurrencyCode } from "app/types/admin.types.d";
 import logger from "app/utils/logger";
 
+// const IS_TEST_BILLING = process.env.NODE_ENV !== "production";
+const IS_TEST_BILLING = true;
+
 interface CreateSubscriptionParams {
   request: any;
   session: any;
@@ -99,45 +102,6 @@ const calculateDiscountDetails = (coupon?: Coupon) => {
   };
 };
 
-// Helper function to track coupon usage
-const trackCouponUsage = async (
-  couponId: string,
-  shopDomain: string,
-  chargeId: string,
-) => {
-  const shop = await prisma.shop.findFirst({
-    where: { shop: shopDomain },
-  });
-
-  try {
-    const existingUsage = await prisma.couponUsage.findFirst({
-      where: {
-        couponId,
-        shop: shopDomain,
-      },
-    });
-
-    if (existingUsage) {
-      await prisma.couponUsage.update({
-        where: { id: existingUsage.id },
-        data: { shopifyChargeId: Number(chargeId) },
-      });
-    } else {
-      await prisma.couponUsage.create({
-        data: {
-          coupon: { connect: { id: couponId } },
-          shopModel: { connect: { id: shop.id } },
-          usedAt: null,
-          shopifyChargeId: Number(chargeId),
-        },
-      });
-    }
-  } catch (err) {
-    console.error("Failed to track coupon usage:", err);
-    throw new Error("Failed to track coupon usage");
-  }
-};
-
 // Helper function to build line items
 const buildLineItems = (plan: any, billingCycle: string, coupon?: Coupon) => {
   let basePrice = 0;
@@ -200,7 +164,7 @@ export const createSubscription = async ({
       name: subscriptionName,
       returnUrl: `https://${session.shop}/admin/apps/${process.env.SHOPIFY_API_KEY}/app/billing`,
 
-      test: process.env.NODE_ENV !== "production",
+      test: IS_TEST_BILLING,
       lineItems,
       ...(plan.trialDays && { trialDays: plan.trialDays }),
     };
@@ -215,7 +179,7 @@ export const createSubscription = async ({
     // Check for GraphQL errors
     if (data.data?.appSubscriptionCreate?.userErrors?.length > 0) {
       const errors = data.data.appSubscriptionCreate.userErrors;
-      console.error("GraphQL errors:", errors);
+      logger.error("GraphQL errors:", errors);
       throw new BillingError(
         errors.map((err: any) => err.message).join(", "),
         "GRAPHQL_ERROR",
@@ -236,26 +200,13 @@ export const createSubscription = async ({
       );
     }
 
-    // const subscriptionId = subscription?.id;
-
-    // Record coupon usage if a coupon was applied
-    if (couponCode && coupon && subscriptionId) {
-      try {
-        const chargeId = subscriptionId.split("/").pop();
-        await trackCouponUsage(coupon.id, session.shop, chargeId);
-      } catch (error) {
-        console.error("Error recording coupon usage:", error);
-        // Don't fail the subscription creation if coupon recording fails
-      }
-    }
-
     return confirmationUrl;
   } catch (error) {
     if (error instanceof BillingError) {
       throw error;
     }
 
-    console.error("Billing error:", error);
+    logger.error("Billing error:", error);
     throw new BillingError(
       error instanceof Error ? error.message : "Failed to create subscription",
       "SUBSCRIPTION_CREATION_FAILED",
@@ -317,7 +268,7 @@ export async function createAppSubscription(
   try {
     const { admin, session } = await authenticate.admin(request);
 
-    console.log("\n\n\n\n🔥 ", subscriptionData);
+    logger.info("\n\n\n\n🔥 ", subscriptionData);
     const { selectedPlan, usageData } = subscriptionData;
 
     const subscriptionInput = {
@@ -328,7 +279,7 @@ export async function createAppSubscription(
       usageCurrencyCode: CurrencyCode.Usd,
       recurringAmount: Number(selectedPlan.monthlyPrice),
       recurringCurrencyCode: CurrencyCode.Usd,
-      test: process.env.NODE_ENV !== "production",
+      test: IS_TEST_BILLING,
     };
 
     const response = await admin.graphql(CREATE_USAGE_SUBSCRIPTION, {
@@ -451,7 +402,7 @@ export async function createOneTimePurchase(
         currencyCode: CurrencyCode.Usd,
       },
       returnUrl: `https://${session.shop}/admin/apps/${process.env.SHOPIFY_API_KEY}/app/billing`, // Adjust return URL as needed
-      test: process.env.NODE_ENV !== "production",
+      test: IS_TEST_BILLING,
     };
 
     const response = await admin.graphql(APP_ONE_TIME_PURCHASE_CREATE, {

@@ -28,6 +28,7 @@ interface DataSourceFormProps {
   onFilesChange: (files: FileData[]) => void;
   onStartProcessing: () => void;
   canProcess: boolean;
+  isLoading?: boolean;
 }
 
 const tabs = [
@@ -35,19 +36,22 @@ const tabs = [
     id: "documents-tab",
     content: "Documents / Files",
     accessibilityLabel: "Upload documents and files",
-    panelID: "documents-panel",
+    panelID: "data-source-1",
   },
-  {
-    id: "urls-tab",
-    content: "Website URLs",
-    accessibilityLabel: "Add website URLs",
-    panelID: "urls-panel",
-  },
+
   {
     id: "text-tab",
     content: "Raw Text",
     accessibilityLabel: "Add raw text content",
-    panelID: "text-panel",
+    panelID: "data-source-2",
+  },
+  {
+    id: "urls-tab",
+    content: "Website URLs (soon)",
+    accessibilityLabel: "Add website URLs",
+    panelID: "data-source-3",
+
+    disabled: true,
   },
 ];
 
@@ -62,6 +66,7 @@ export function DataSourceForm({
   onFilesChange,
   onStartProcessing,
   canProcess,
+  isLoading,
 }: DataSourceFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -110,18 +115,10 @@ export function DataSourceForm({
   );
 
   const renderTabContent = () => {
-    const tabContentStyle = {
-      minHeight: "240px",
-      overflow: "auto" as const,
-      display: "flex",
-      flexDirection: "column" as const,
-      gap: "14px",
-    };
-
     switch (selectedTab) {
-      case 0: // Documents
+      case 0:
         return (
-          <div style={tabContentStyle}>
+          <BlockStack gap={"400"}>
             <input
               ref={fileInputRef}
               type="file"
@@ -167,56 +164,27 @@ export function DataSourceForm({
                       Drop documents here or click to upload
                     </Text>
                     <Text as="p" variant="bodySm" tone="subdued">
-                      Supports PDF, DOC, DOCX, TXT, RTF, CSV, XLS, XLSX and
-                      other document formats
+                      Supports PDF, Word documents, Excel files, Text files,
+                      RTF, and more. Maximum file size: 50MB per file.
                     </Text>
                   </BlockStack>
                 )}
               </Box>
             </DropZone>
-
-            <Banner tone="info">
-              <Text as="p" variant="bodySm">
-                <strong>Supported formats:</strong> PDF, Word documents, Excel
-                files, Text files, RTF, and more. Maximum file size: 50MB per
-                file.
-              </Text>
-            </Banner>
-          </div>
+          </BlockStack>
         );
-
-      case 1: // URLs
+      case 1:
         return (
-          <div style={tabContentStyle}>
+          <BlockStack gap={"400"}>
             <TextField
-              label="Website URL"
-              value={urlInput}
-              onChange={onUrlInputChange}
-              placeholder="https://example.com"
-              helpText="Enter the complete website URL you want to process"
-              autoComplete="url"
-            />
-
-            <Banner tone="info">
-              <Text as="p" variant="bodySm">
-                <strong>Note:</strong> Processing extracts text content only.
-                Media files and dynamic content may not be included.
-              </Text>
-            </Banner>
-          </div>
-        );
-
-      case 2: // Text
-        return (
-          <div style={tabContentStyle}>
-            <TextField
-              label="Text Content"
+              label={null}
               value={textInput}
               onChange={onTextInputChange}
-              multiline={8}
-              placeholder="Enter your text content here...&#10;&#10;You can paste:&#10;• Articles or blog posts&#10;• Documentation&#10;• Notes or instructions&#10;• Any other text-based content"
+              multiline={6}
+              placeholder="Enter your text content here..."
               helpText="Paste or type the raw text content you want to add as a data source"
               autoComplete="off"
+              maxHeight={"120px"}
             />
 
             {textInput.length > 0 && (
@@ -239,7 +207,27 @@ export function DataSourceForm({
                 </Text>
               </Banner>
             )}
-          </div>
+          </BlockStack>
+        );
+      case 2:
+        return (
+          <BlockStack gap={"400"}>
+            <TextField
+              label="Website URL"
+              value={urlInput}
+              onChange={onUrlInputChange}
+              placeholder="https://example.com"
+              helpText="Enter the complete website URL you want to process"
+              autoComplete="url"
+            />
+
+            <Banner tone="info">
+              <Text as="p" variant="bodySm">
+                <strong>Note:</strong> Processing extracts text content only.
+                Media files and dynamic content may not be included.
+              </Text>
+            </Banner>
+          </BlockStack>
         );
 
       default:
@@ -258,14 +246,15 @@ export function DataSourceForm({
           <Tabs tabs={tabs} selected={selectedTab} onSelect={onTabChange}>
             <LegacyCard.Section>
               <BlockStack gap="400">
-                {renderTabContent()}
+                <div style={{ height: "140px" }}>{renderTabContent()}</div>
 
                 <InlineStack align="end">
                   <Button
                     variant="primary"
-                    disabled={!canProcess}
+                    disabled={!canProcess || isLoading}
                     onClick={onStartProcessing}
                     submit
+                    loading={isLoading}
                   >
                     Start Processing
                   </Button>

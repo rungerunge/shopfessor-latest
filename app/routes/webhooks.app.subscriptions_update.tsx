@@ -1,7 +1,8 @@
-import type { ActionFunctionArgs } from "@remix-run/node";
+import { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../lib/shopify.server";
 import prisma from "app/lib/db.server";
-import { getCurrentSubscriptions } from "app/models/billing.server";
+import { getCurrentSubscriptions } from "app/services/billing.server";
+import logger from "app/utils/logger";
 
 /**
  * Webhook handler for Shopify app subscription updates
@@ -10,13 +11,14 @@ import { getCurrentSubscriptions } from "app/models/billing.server";
 export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     const { payload, topic, shop, admin } = await authenticate.webhook(request);
-    console.log(`Received ${topic} webhook for ${shop}`);
-    console.log("🔴 payload: ", payload);
+
+    logger.info(`Received ${topic} webhook for ${shop}`);
+    logger.info("🔴 payload: ", payload);
     const { app_subscription } = payload;
 
     // Validate payload contains subscription data
     if (!app_subscription) {
-      console.error("No app_subscription data in payload");
+      logger.error("No app_subscription data in payload");
       return new Response("No subscription data", { status: 400 });
     }
 
@@ -31,11 +33,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     });
 
     if (!shopModel) {
-      console.error(`Shop not found: ${shop}`);
+      logger.error(`Shop not found: ${shop}`);
       return new Response("Shop not found", { status: 404 });
     }
 
-    console.log(`Found shop: ${shopModel.id} for ${shop}`);
+    logger.info(`Found shop: ${shopModel.id} for ${shop}`);
 
     // Find existing subscription by Shopify ID first, then by shop + name as fallback
     let existingSubscription = await prisma.subscription.findFirst({
@@ -106,7 +108,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             updatedAt: new Date(),
           },
         });
-        console.log(`Cancelled subscription: ${existingSubscription.id}`);
+        logger.info(`Cancelled subscription: ${existingSubscription.id}`);
         subscriptionProcessed = true;
       }
     } else if (existingSubscription) {
@@ -127,15 +129,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           updatedAt: new Date(),
         },
       });
-      console.log(`Updated subscription: ${existingSubscription.id}`);
+      logger.info(`Updated subscription: ${existingSubscription.id}`);
       subscriptionProcessed = true;
 
       // Track coupon usage for updated active subscriptions
       if (mappedStatus === "ACTIVE") {
-        console.log(
+        logger.info(
           `Tracking coupon usage for updated subscription: ${existingSubscription.id}`,
         );
-        await trackCouponUsage(request, shop);
       }
     } else {
       // Create new subscription
@@ -153,159 +154,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           planId: plan?.id || null,
         },
       });
-      console.log(`Created subscription: ${newSubscription.id}`);
+      logger.info(`Created subscription: ${newSubscription.id}`);
       subscriptionProcessed = true;
 
       // Track coupon usage for new active subscriptions
       if (mappedStatus === "ACTIVE") {
-        console.log(
+        logger.info(
           `Tracking coupon usage for new subscription: ${newSubscription.id}`,
         );
-        await trackCouponUsage(admin, shop);
       }
     }
 
     if (!subscriptionProcessed) {
-      console.warn(
+      logger.warn(
         `No subscription processing occurred for ${shop} - ${app_subscription.name}`,
       );
     }
 
     return new Response("OK", { status: 200 });
   } catch (error) {
-    console.error("Error in subscription webhook handler:", error);
+    logger.error("Error in subscription webhook handler:", error);
     return new Response("Internal Server Error", { status: 500 });
-  }
-};
-
-/**
- * Tracks coupon usage by querying Shopify's GraphQL API for active subscriptions
- * and matching them with coupons in our local database.
- *
- * LIMITATION: Shopify's AppSubscription GraphQL API doesn't provide the actual coupon code,
- * only the discount type and amount. This makes it challenging to accurately match
- * subscriptions with specific coupons in our database.
- *
- * @param admin - Shopify Admin API client
- * @param shopDomain - The shop domain
- */
-const trackCouponUsage = async (request: any, shopDomain: string) => {
-  try {
-    console.log(`Starting coupon usage tracking for shop: ${shopDomain}`);
-
-    const { subscriptions, errors } = await getCurrentSubscriptions(request);
-
-    // Process each active subscription
-    for (const sub of subscriptions) {
-      const shopifySubscriptionId = sub.id;
-
-      // Find the corresponding subscription in our local database
-      const existingSubscription = await prisma.subscription.findFirst({
-        where: { shopifyId: shopifySubscriptionId },
-      });
-
-      if (!existingSubscription) {
-        console.warn(
-          `Subscription with shopifyId ${shopifySubscriptionId} not found in local DB. Skipping coupon tracking.`,
-        );
-        continue;
-      }
-
-      console.log(
-        `Processing subscription: ${existingSubscription.id} (Shopify ID: ${shopifySubscriptionId})`,
-      );
-
-      // Check each line item for discounts
-      for (const item of sub.lineItems) {
-        const discount = item.plan.pricingDetails?.discount;
-
-        if (!discount) {
-          console.log(`No discount found for line item ${item.id}`);
-          continue;
-        }
-
-        // Determine the coupon type based on Shopify's discount structure
-        let couponType: "FIXED" | "PERCENTAGE" | null = null;
-        let discountValue: number | null = null;
-
-        if (discount.value.__typename === "AppSubscriptionDiscountAmount") {
-          couponType = "FIXED";
-          discountValue = parseFloat(discount.value.amount.amount);
-        } else if (
-          discount.value.__typename === "AppSubscriptionDiscountPercentage"
-        ) {
-          couponType = "PERCENTAGE";
-          discountValue = discount.value.percentage;
-        }
-
-        if (couponType === null) {
-          console.log(`Unknown discount type for line item ${item.id}`);
-          continue;
-        }
-
-        console.log(
-          `Found ${couponType} discount of ${discountValue} for line item ${item.id}`,
-        );
-
-        // CRITICAL LIMITATION: Shopify doesn't provide the actual coupon code
-        // We can only match by type and potentially by discount value, which is unreliable
-        // TODO: Consider enhancing this by:
-        // 1. Storing coupon codes in subscription metadata when initially applied
-        // 2. Using subscription names if they contain coupon codes
-        // 3. Implementing a more sophisticated matching algorithm
-
-        const coupon = await prisma.coupon.findFirst({
-          where: {
-            type: couponType,
-            active: true,
-            // Additional matching criteria could be added here if available
-            // For example: discountAmount: discountValue (for FIXED coupons)
-            // or discountPercentage: discountValue (for PERCENTAGE coupons)
-          },
-          orderBy: { createdAt: "desc" }, // Get the most recent matching coupon
-        });
-
-        if (!coupon) {
-          console.warn(
-            `No active coupon found in local DB matching type '${couponType}' with value ${discountValue}. Cannot track usage without a specific coupon code.`,
-          );
-          continue;
-        }
-
-        // Check if coupon usage is already tracked for this subscription
-        const existingUsage = await prisma.couponUsage.findFirst({
-          where: {
-            couponId: coupon.id,
-            shop: shopDomain,
-            subscriptionId: existingSubscription.id,
-          },
-        });
-
-        if (existingUsage) {
-          console.log(
-            `Coupon usage already tracked for subscription ${existingSubscription.id} with coupon ${coupon.code}.`,
-          );
-          continue;
-        }
-
-        // Create new coupon usage record
-        await prisma.couponUsage.create({
-          data: {
-            couponId: coupon.id,
-            shop: shopDomain,
-            subscriptionId: existingSubscription.id,
-            usedAt: new Date(),
-          },
-        });
-
-        console.log(
-          `Successfully tracked coupon usage for subscription ${existingSubscription.id} with coupon ${coupon.code} (Type: ${coupon.type}, Value: ${discountValue}).`,
-        );
-      }
-    }
-  } catch (error) {
-    console.error("Error in trackCouponUsage:", error);
-    // Don't throw the error to prevent webhook processing failure
-    // Coupon tracking is supplementary functionality
   }
 };

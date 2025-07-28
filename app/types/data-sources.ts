@@ -15,12 +15,15 @@ export interface DataSource {
 
 export interface ProcessingItem {
   id: string;
+  jobId?: string;
   type: string;
   name: string;
   content: string;
   progress: number;
   stage: string;
   startTime: number;
+  status: "waiting" | "processing" | "completed" | "failed";
+  error?: string;
 }
 
 export interface FileData {
