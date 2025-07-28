@@ -1,50 +1,37 @@
 export const GET_CURRENT_SUBSCRIPTIONS = `#graphql
- query GetCurrentSubscriptions {
-          currentAppInstallation {
-            activeSubscriptions {
-              id
-              name
-              status
-              createdAt
-              currentPeriodEnd
-              lineItems {
-                id
-                plan {
-                  pricingDetails {
-                    ... on AppRecurringPricing {
-                      price {
-                        amount
-                        currencyCode
-                      }
-                      interval
-                      discount {
-                        durationLimitInIntervals
-                        remainingDurationInIntervals
-                        priceAfterDiscount {
-                          amount
-                          currencyCode
-                        }
-                        value {
-                          __typename
-                          ... on AppSubscriptionDiscountAmount {
-                            amount {
-                              amount
-                              currencyCode
-                            }
-                          }
-                          ... on AppSubscriptionDiscountPercentage {
-                            percentage
-                          }
-                        }
-                      }
-                    }
-                  }
+  query GetCurrentSubscription {
+    currentAppInstallation {
+      activeSubscriptions {
+        id
+        name
+        status
+        createdAt
+        currentPeriodEnd
+        lineItems {
+          id
+          plan {
+            pricingDetails {
+              __typename
+              ... on AppUsagePricing {
+                terms
+                cappedAmount {
+                  amount
+                  currencyCode
+                }
+              }
+              ... on AppRecurringPricing {
+                price {
+                  amount
+                  currencyCode
                 }
               }
             }
           }
         }
-    `;
+      }
+    }
+  }
+`;
 
 // GraphQL Mutations
 export const CREATE_USAGE_SUBSCRIPTION = `#graphql

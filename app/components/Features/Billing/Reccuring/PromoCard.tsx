@@ -7,8 +7,9 @@ import {
   Text,
   Select,
   TextField,
-  InlineError, Card,
-  Banner
+  InlineError,
+  Card,
+  Banner,
 } from "@shopify/polaris";
 import type { Plan } from "@prisma/client";
 
