@@ -1,49 +1,46 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
-  BlockStack,
-  InlineStack,
-  Text,
-  Card,
-  Button,
+  IndexTable,
   Badge,
-  EmptyState,
-  ButtonGroup,
-  Icon,
+  Text,
   Tooltip,
   Box,
-  Pagination,
+  BlockStack,
+  Card,
+  Button,
+  ButtonGroup,
+  Icon,
   TextField,
   Select,
   Spinner,
   Modal,
   TextContainer,
+  EmptyState,
+  InlineStack,
 } from "@shopify/polaris";
 import {
   LinkIcon,
   FileIcon,
   TextIcon,
   DeleteIcon,
+  CircleDownIcon,
   CheckIcon,
   SearchIcon,
   FilterIcon,
   ClockIcon,
-  CalendarIcon,
 } from "@shopify/polaris-icons";
 import { DataSource } from "app/types/data-sources";
 
 interface DataSourceListProps {
   dataSources: DataSource[];
-  onDeleteSource: (id: string) => void;
   loading?: boolean;
 }
 
 const ITEMS_PER_PAGE = 10;
 const MAX_TITLE_LENGTH = 50;
-const MAX_CONTENT_PREVIEW_LENGTH = 120;
 
 export function DataSourceList({
   dataSources,
-  onDeleteSource,
   loading = false,
 }: DataSourceListProps) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -136,18 +133,38 @@ export function DataSourceList({
     setDeleteModalActive(true);
   };
 
-  const handleDeleteConfirm = () => {
-    if (sourceToDelete) {
-      onDeleteSource(sourceToDelete);
-      setDeleteModalActive(false);
-      setSourceToDelete(null);
-    }
-  };
-
   const handleDeleteCancel = () => {
     setDeleteModalActive(false);
     setSourceToDelete(null);
   };
+
+  const handleDownload = useCallback(
+    async (documentId: string, filename: string) => {
+      try {
+        const res = await fetch("/app/knowledge-base", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: `_action=download-source&documentId=${encodeURIComponent(documentId)}`,
+        });
+        if (!res.ok) {
+          // handle error (optional: show toast)
+          return;
+        }
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename || "file";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (e) {
+        // handle error (optional: show toast)
+      }
+    },
+    [],
+  );
 
   // Get unique statuses and types for filter options
   const statusOptions = [
@@ -165,16 +182,110 @@ export function DataSourceList({
     { label: "Text", value: "text" },
   ];
 
+  const rowMarkup = paginatedSources.map((source, index) => {
+    return (
+      <IndexTable.Row id={source.id} key={source.id} position={index}>
+        <IndexTable.Cell>
+          <Box paddingBlockStart={"200"} paddingBlockEnd={"200"}>
+            <InlineStack gap="200" blockAlign="center">
+              <div>
+                <Icon source={getSourceIcon(source.type)} />
+              </div>
+              <Text as="span" variant="bodyMd" fontWeight="semibold">
+                {truncateText(source.name, MAX_TITLE_LENGTH)}
+              </Text>
+            </InlineStack>
+          </Box>
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          <Text as="span" variant="bodyMd">
+            {source.type}
+          </Text>
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          <Badge
+            tone={getStatusTone(source.status)}
+            size="medium"
+            icon={
+              source.status.toLowerCase() === "processed"
+                ? CheckIcon
+                : undefined
+            }
+          >
+            {source.status}
+          </Badge>
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          <Text as="span" variant="bodyMd">
+            {formatDate(source.addedAt)}
+          </Text>
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          {source.processingTime ? (
+            <InlineStack gap="100" blockAlign="center">
+              <div>
+                <Icon source={ClockIcon} />
+              </div>
+              <Text as="span" variant="bodyMd">
+                {source.processingTime}
+              </Text>
+            </InlineStack>
+          ) : (
+            <Text as="span" variant="bodyMd" tone="subdued">
+              --
+            </Text>
+          )}
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          <ButtonGroup>
+            <Tooltip content="Download source">
+              <Button
+                size="slim"
+                variant="tertiary"
+                icon={CircleDownIcon}
+                onClick={() => handleDownload(source.id, source.name)}
+                accessibilityLabel={`Download ${source.name}`}
+              />
+            </Tooltip>
+            <Tooltip content="Delete source">
+              <Button
+                size="slim"
+                icon={DeleteIcon}
+                variant="tertiary"
+                tone="critical"
+                onClick={() => handleDeleteClick(source.id)}
+                accessibilityLabel={`Delete ${source.name}`}
+              />
+            </Tooltip>
+          </ButtonGroup>
+        </IndexTable.Cell>
+      </IndexTable.Row>
+    );
+  });
+
+  const EmptyStateTable = () => (
+    <Box paddingBlockStart="800" paddingBlockEnd="800">
+      <BlockStack align="center" gap="400">
+        <Text as="h3" variant="headingLg" alignment="center">
+          No data sources found
+        </Text>
+        <Text variant="bodyMd" as="span" alignment="center">
+          Try changing the filters or search term
+        </Text>
+      </BlockStack>
+    </Box>
+  );
+
   if (loading) {
     return (
       <Card>
         <Box padding="800">
-          <InlineStack align="center" gap="200">
+          <BlockStack align="center" gap="200">
             <Spinner size="small" />
             <Text as="p" variant="bodyMd">
               Loading data sources...
             </Text>
-          </InlineStack>
+          </BlockStack>
         </Box>
       </Card>
     );
@@ -183,12 +294,10 @@ export function DataSourceList({
   if (dataSources.length === 0) {
     return (
       <Card>
-        <EmptyState
-          heading="No data sources yet"
-          image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-        >
+        <EmptyState heading="No Data Sources Yet">
           <Text as="p" variant="bodyMd" tone="subdued">
-            Add your first data source using the tabs above to get started
+            Use the tabs above to upload files, paste text, or import from URLs.
+            These will be added to your knowledge base.
           </Text>
         </EmptyState>
       </Card>
@@ -200,20 +309,18 @@ export function DataSourceList({
       <Card>
         <BlockStack gap="400">
           {/* Header */}
-          <InlineStack align="space-between" blockAlign="center">
-            <Text as="h2" variant="headingMd">
-              Data Sources
-            </Text>
-            <Badge tone="info">
-              {`${filteredSources.length} of ${dataSources.length} sources`}
-            </Badge>
-          </InlineStack>
+          <Box paddingBlockEnd={"400"}>
+            <BlockStack gap={"400"}>
+              <InlineStack align="space-between" blockAlign="center">
+                <Text as="h2" variant="headingMd">
+                  Data Sources
+                </Text>
+                <Badge tone="info">{`${dataSources.length} sources`}</Badge>
+              </InlineStack>
 
-          {/* Filters and Search */}
-          <BlockStack gap="400">
-            <InlineStack gap="400" align="start">
-              <div style={{ flex: "1" }}>
-                <Box>
+              {/* Filters and Search */}
+              <InlineStack gap="400" align="start">
+                <div style={{ flex: 1 }}>
                   <TextField
                     label=""
                     placeholder="Search by name or content..."
@@ -224,148 +331,69 @@ export function DataSourceList({
                     onClearButtonClick={() => setSearchQuery("")}
                     autoComplete="off"
                   />
-                </Box>
-              </div>
-              <Select
-                label=""
-                options={statusOptions}
-                value={statusFilter}
-                onChange={setStatusFilter}
-              />
-              <Select
-                label=""
-                options={typeOptions}
-                value={typeFilter}
-                onChange={setTypeFilter}
-              />
-            </InlineStack>
-
-            {(searchQuery ||
-              statusFilter !== "all" ||
-              typeFilter !== "all") && (
-              <InlineStack gap="200">
-                <Text as="p" variant="bodySm" tone="subdued">
-                  <Icon source={FilterIcon} />
-                </Text>
-                <Text as="p" variant="bodySm" tone="subdued">
-                  {filteredSources.length} result
-                  {filteredSources.length !== 1 ? "s" : ""} found
-                </Text>
-                <Button
-                  size="micro"
-                  variant="plain"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setStatusFilter("all");
-                    setTypeFilter("all");
-                  }}
-                >
-                  Clear filters
-                </Button>
-              </InlineStack>
-            )}
-          </BlockStack>
-
-          {/* Results */}
-          {filteredSources.length === 0 ? (
-            <Card>
-              <Box padding="400">
-                <InlineStack align="center">
-                  <Text as="p" variant="bodyMd" tone="subdued">
-                    No data sources match your current filters
-                  </Text>
-                </InlineStack>
-              </Box>
-            </Card>
-          ) : (
-            <BlockStack gap="200">
-              {paginatedSources.map((source, index) => (
-                <Card key={source.id}>
-                  <InlineStack
-                    align="space-between"
-                    blockAlign="start"
-                    gap="400"
-                  >
-                    <InlineStack gap="400" blockAlign="start">
-                      <Box paddingBlockStart="050">
-                        <Icon source={getSourceIcon(source.type)} />
-                      </Box>
-
-                      <BlockStack gap="200">
-                        <Text as="p" variant="bodyMd" fontWeight="semibold">
-                          {truncateText(source.name, MAX_TITLE_LENGTH)}
-                        </Text>
-
-                        <Text as="p" variant="bodySm" tone="subdued">
-                          {truncateText(
-                            source.content,
-                            MAX_CONTENT_PREVIEW_LENGTH,
-                          )}
-                        </Text>
-
-                        <InlineStack gap="300" wrap={false}>
-                          <Badge
-                            tone={getStatusTone(source.status)}
-                            icon={
-                              source.status.toLowerCase() === "processed"
-                                ? CheckIcon
-                                : undefined
-                            }
-                          >
-                            {source.status}
-                          </Badge>
-
-                          <InlineStack gap="100" blockAlign="center">
-                            <Icon source={CalendarIcon} />
-                            <Text as="p" variant="bodySm" tone="subdued">
-                              {formatDate(source.addedAt)}
-                            </Text>
-                          </InlineStack>
-
-                          {source.processingTime && (
-                            <InlineStack gap="100" blockAlign="center">
-                              <Icon source={ClockIcon} />
-                              <Text as="p" variant="bodySm" tone="subdued">
-                                {source.processingTime}
-                              </Text>
-                            </InlineStack>
-                          )}
-                        </InlineStack>
-                      </BlockStack>
-                    </InlineStack>
-
-                    <ButtonGroup>
-                      <Tooltip content="Delete source">
-                        <Button
-                          size="slim"
-                          icon={DeleteIcon}
-                          variant="tertiary"
-                          tone="critical"
-                          onClick={() => handleDeleteClick(source.id)}
-                          accessibilityLabel={`Delete ${source.name}`}
-                        />
-                      </Tooltip>
-                    </ButtonGroup>
-                  </InlineStack>
-                </Card>
-              ))}
-            </BlockStack>
-          )}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <Box paddingBlockStart="400">
-              <InlineStack align="center">
-                <Pagination
-                  hasPrevious={currentPage > 1}
-                  onPrevious={() => setCurrentPage(currentPage - 1)}
-                  hasNext={currentPage < totalPages}
-                  onNext={() => setCurrentPage(currentPage + 1)}
-                  label={`Page ${currentPage} of ${totalPages} (${filteredSources.length} items)`}
+                </div>
+                <Select
+                  label=""
+                  options={statusOptions}
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                />
+                <Select
+                  label=""
+                  options={typeOptions}
+                  value={typeFilter}
+                  onChange={setTypeFilter}
                 />
               </InlineStack>
-            </Box>
-          )}
+
+              {(searchQuery ||
+                statusFilter !== "all" ||
+                typeFilter !== "all") && (
+                <InlineStack gap="200" blockAlign="center">
+                  <Icon source={FilterIcon} />
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    {filteredSources.length} result
+                    {filteredSources.length !== 1 ? "s" : ""} found
+                  </Text>
+                  <Button
+                    size="micro"
+                    variant="plain"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setStatusFilter("all");
+                      setTypeFilter("all");
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                </InlineStack>
+              )}
+            </BlockStack>
+          </Box>
+
+          {/* Table Results */}
+          <IndexTable
+            selectable={false}
+            resourceName={{ singular: "data source", plural: "data sources" }}
+            itemCount={paginatedSources.length}
+            headings={[
+              { title: "Name" },
+              { title: "Type" },
+              { title: "Status" },
+              { title: "Added At" },
+              { title: "Processing Time" },
+              { title: "Actions" },
+            ]}
+            emptyState={<EmptyStateTable />}
+            pagination={{
+              hasNext: currentPage < totalPages,
+              onNext: () => setCurrentPage((prev) => prev + 1),
+              hasPrevious: currentPage > 1,
+              onPrevious: () => setCurrentPage((prev) => prev - 1),
+            }}
+          >
+            {rowMarkup}
+          </IndexTable>
         </BlockStack>
       </Card>
 
@@ -376,7 +404,22 @@ export function DataSourceList({
         title="Delete data source"
         primaryAction={{
           content: "Delete",
-          onAction: handleDeleteConfirm,
+          onAction: () => {
+            if (sourceToDelete) {
+              // Submit the delete form
+              const form = document.createElement("form");
+              form.method = "post";
+              form.innerHTML = `
+                <input type="hidden" name="_action" value="delete-source" />
+                <input type="hidden" name="documentId" value="${sourceToDelete}" />
+              `;
+              document.body.appendChild(form);
+              form.submit();
+              document.body.removeChild(form);
+            }
+            setDeleteModalActive(false);
+            setSourceToDelete(null);
+          },
           destructive: true,
         }}
         secondaryActions={[
@@ -390,7 +433,8 @@ export function DataSourceList({
           <TextContainer>
             <Text as="p">
               Are you sure you want to delete this data source? This action
-              cannot be undone.
+              cannot be undone and will remove the file from S3, delete vectors
+              from Qdrant, and remove the record from the database.
             </Text>
           </TextContainer>
         </Modal.Section>
