@@ -1,7 +1,6 @@
 import { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../lib/shopify.server";
 import prisma from "app/lib/db.server";
-import { getCurrentSubscriptions } from "app/services/billing/billing.server";
 import logger from "app/utils/logger";
 
 /**
@@ -13,7 +12,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const { payload, topic, shop, admin } = await authenticate.webhook(request);
 
     logger.info(`Received ${topic} webhook for ${shop}`);
-    logger.info("🔴 payload: ", payload);
     const { app_subscription } = payload;
 
     // Validate payload contains subscription data
