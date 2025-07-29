@@ -25,7 +25,7 @@ interface BillingOption {
   icon: any;
   linkTo: string;
   badge?: string;
-  badgeStatus?: "success" | "info" | "warning" | "critical" | "attention";
+  badgeStatus?: string;
 }
 
 const billingOptions: BillingOption[] = [
@@ -37,7 +37,7 @@ const billingOptions: BillingOption[] = [
     icon: CreditCardIcon,
     linkTo: "/app/billing/recurring",
     badge: "Popular",
-    badgeStatus: "success",
+    badgeStatus: "default",
   },
   {
     id: "usage",
@@ -47,7 +47,7 @@ const billingOptions: BillingOption[] = [
     icon: ClockIcon,
     linkTo: "/app/billing/usage",
     badge: "Flexible",
-    badgeStatus: "info",
+    badgeStatus: "default",
   },
   {
     id: "onetime",
@@ -57,7 +57,7 @@ const billingOptions: BillingOption[] = [
     icon: GiftCardFilledIcon,
     linkTo: "/app/billing/onetime",
     badge: "Simple",
-    badgeStatus: "attention",
+    badgeStatus: "default",
   },
 ];
 
@@ -111,9 +111,11 @@ export default function BillingIndex() {
                               {option.title}
                             </Text>
                             {option.badge && (
-                              <Badge status={option.badgeStatus}>
-                                {option.badge}
-                              </Badge>
+                              <div>
+                                <Badge tone={option.badgeStatus}>
+                                  {option.badge}
+                                </Badge>
+                              </div>
                             )}
                           </BlockStack>
                         </InlineStack>

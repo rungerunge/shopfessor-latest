@@ -1,7 +1,7 @@
 import { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../lib/shopify.server";
 import prisma from "app/lib/db.server";
-import { getCurrentSubscriptions } from "app/services/billing.server";
+import { getCurrentSubscriptions } from "app/services/billing/billing.server";
 import logger from "app/utils/logger";
 
 /**

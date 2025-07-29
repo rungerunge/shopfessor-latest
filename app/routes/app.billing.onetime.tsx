@@ -16,7 +16,7 @@ import {
   getRecentPurchases,
   getAvailablePlans,
   createOneTimePurchase,
-} from "app/services/billing-onetime.server";
+} from "app/services/billing/billing-onetime.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request);
