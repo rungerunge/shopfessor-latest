@@ -32,6 +32,7 @@ import {
   ResourcePicker,
   ShopifyResource,
 } from "app/components/Common/ResourcePicker/ResourcePicker";
+import ShopifyReview from "app/components/Common/ShopifyReview/ShopifyReview";
 
 const slides = [
   {
@@ -230,7 +231,6 @@ export default function ComponentsPage() {
       setMultipleProductsLoading(false);
     }
   };
-
   const handleMultipleProductsClear = () => {
     setMultipleProducts([]);
     setMultipleProductsError(null);
@@ -397,6 +397,10 @@ export default function ComponentsPage() {
               <StatsTable title="Top Products" items={products} />
               <Activity title="Recent activity" activities={activities} />
             </InlineGrid>
+          </Layout.Section>
+
+          <Layout.Section>
+            <ShopifyReview />
           </Layout.Section>
 
           {/* Resource Pickers Section */}

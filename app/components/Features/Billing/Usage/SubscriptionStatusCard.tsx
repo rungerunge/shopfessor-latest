@@ -22,8 +22,6 @@ export function SubscriptionStatusCard({
   subscriptionData,
   monthlyUsage,
 }: SubscriptionStatusCardProps) {
-  console.log("🔴 subscriptoin data: ", subscriptionData);
-  console.log("🔴 motnthlly usage: ", monthlyUsage);
   const formatPrice = (price: number, currency = "USD") => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
