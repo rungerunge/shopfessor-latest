@@ -22,6 +22,8 @@ export function SubscriptionStatusCard({
   subscriptionData,
   monthlyUsage,
 }: SubscriptionStatusCardProps) {
+  console.log("🔴 subscriptoin data: ", subscriptionData);
+  console.log("🔴 motnthlly usage: ", monthlyUsage);
   const formatPrice = (price: number, currency = "USD") => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -56,7 +58,11 @@ export function SubscriptionStatusCard({
             <Text variant="headingLg" as="h3">
               {subscriptionData.planName || "Unknown Plan"}
             </Text>
-            <Badge tone="success">{subscriptionData.status || "ACTIVE"}</Badge>
+            <div>
+              <Badge tone="success">
+                {subscriptionData.status || "ACTIVE"}
+              </Badge>
+            </div>
             {subscriptionData.currentPeriodEnd && (
               <Text as="p" variant="bodyMd" tone="subdued">
                 Renews on {formatDate(subscriptionData.currentPeriodEnd)}

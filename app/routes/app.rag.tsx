@@ -1,39 +1,25 @@
 import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
-import {
-  Form,
-  useActionData,
-  useLoaderData,
-  useFetcher,
-} from "@remix-run/react";
+import { DataSource, FileData } from "app/types/data-sources";
+import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import { Layout, Page } from "@shopify/polaris";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   DataSourceForm,
-  ProcessingQueue,
   DataSourceList,
 } from "app/components/Features/DataSources";
-import { DataSource, ProcessingItem, FileData } from "app/types/data-sources";
 import {
   processFileUpload,
   processTextContent,
   getRecentDataSources,
+  deleteDataSource,
+  downloadDataSource,
 } from "app/services/knowledge-base/data-sources.server";
-import { getQueueStats } from "app/services/queue.server";
 import { useAppBridge } from "@shopify/app-bridge-react";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const [queueStats, documents] = await Promise.all([
-    getQueueStats().catch(() => ({
-      waiting: 0,
-      active: 0,
-      completed: 0,
-      failed: 0,
-    })),
-    getRecentDataSources(20),
-  ]);
+  const documents = await getRecentDataSources(20);
 
   return json({
-    queueStats,
     documents,
   });
 }
@@ -46,7 +32,7 @@ export async function action({ request }: ActionFunctionArgs) {
     return await processFileUpload(request);
   }
 
-  // Handle regular form data for text processing
+  // Handle regular form data for text processing and other actions
   const formData = await request.formData();
   const action = formData.get("_action");
 
@@ -77,71 +63,86 @@ export async function action({ request }: ActionFunctionArgs) {
     }
   }
 
+  if (action === "delete-source") {
+    try {
+      const documentId = formData.get("documentId") as string;
+
+      if (!documentId) {
+        return json({ error: "Document ID is required" }, { status: 400 });
+      }
+
+      const result = await deleteDataSource(documentId);
+      return json({ ...result });
+    } catch (error) {
+      console.error("Delete error:", error);
+      return json(
+        {
+          error: error instanceof Error ? error.message : "Delete failed",
+        },
+        { status: 500 },
+      );
+    }
+  }
+
+  if (action === "download-source") {
+    try {
+      const documentId = formData.get("documentId") as string;
+      if (!documentId) {
+        return json({ error: "Document ID is required" }, { status: 400 });
+      }
+      const result = await downloadDataSource(documentId);
+
+      // If it's a text file
+      if (result.content) {
+        return new Response(result.content, {
+          status: 200,
+          headers: {
+            "Content-Type": result.contentType || "text/plain",
+            "Content-Disposition": `attachment; filename=\"${result.filename || "file.txt"}\"`,
+          },
+        });
+      }
+
+      // If it's a file URL (S3)
+      if (result.url) {
+        // Fetch the file from S3 and stream it as an attachment
+        const fileRes = await fetch(result.url);
+        const fileBuffer = await fileRes.arrayBuffer();
+        return new Response(fileBuffer, {
+          status: 200,
+          headers: {
+            "Content-Type": result.contentType || "application/octet-stream",
+            "Content-Disposition": `attachment; filename=\"${result.filename || "file"}\"`,
+          },
+        });
+      }
+
+      return json({ error: "No downloadable content found" }, { status: 404 });
+    } catch (error) {
+      console.error("Download error:", error);
+      return json(
+        {
+          error: error instanceof Error ? error.message : "Download failed",
+        },
+        { status: 500 },
+      );
+    }
+  }
+
   return json({ error: "Invalid action" }, { status: 400 });
 }
 
 export default function KnowledgeBase() {
-  const { queueStats, documents } = useLoaderData<typeof loader>();
+  const { documents } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
-  const refreshFetcher = useFetcher();
-  const documentsFetcher = useFetcher();
-
-  // Use refreshed data if available, otherwise use loader data
-  const currentQueueStats =
-    (refreshFetcher.data as any)?.queueStats || queueStats;
-  const currentDocuments =
-    (documentsFetcher.data as any)?.documents || documents; // Use refreshed documents if available
 
   const [selectedTab, setSelectedTab] = useState(0);
   const [urlInput, setUrlInput] = useState("");
   const [textInput, setTextInput] = useState("");
   const [files, setFiles] = useState<FileData[]>([]);
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
-  const [processingQueue, setProcessingQueue] = useState<ProcessingItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const shopify = useAppBridge();
-
-  // Refs for progress simulation
-  const progressIntervals = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  const processingItems = useRef<Map<string, ProcessingItem>>(new Map());
-  const refreshInterval = useRef<NodeJS.Timeout>();
-
-  // Periodic refresh of queue stats
-  useEffect(() => {
-    const refreshQueueStats = () => {
-      // Only refresh if we have processing items or active jobs
-      const hasProcessingItems = processingItems.current.size > 0;
-      const hasActiveJobs =
-        currentQueueStats.active > 0 || currentQueueStats.waiting > 0;
-
-      if (hasProcessingItems || hasActiveJobs) {
-        refreshFetcher.load("/app/rag/queue-stats");
-      }
-    };
-
-    // Refresh every 5 seconds only when needed
-    refreshInterval.current = setInterval(refreshQueueStats, 5000);
-
-    return () => {
-      if (refreshInterval.current) {
-        clearInterval(refreshInterval.current);
-      }
-    };
-  }, [refreshFetcher, currentQueueStats.active, currentQueueStats.waiting]);
-
-  // Cleanup intervals on unmount
-  useEffect(() => {
-    return () => {
-      // Clear all progress intervals
-      progressIntervals.current.forEach((interval) => clearInterval(interval));
-      progressIntervals.current.clear();
-
-      // Clear refresh interval
-      if (refreshInterval.current) {
-        clearInterval(refreshInterval.current);
-      }
-    };
-  }, []);
 
   // Show Shopify toast for action results
   useEffect(() => {
@@ -151,23 +152,16 @@ export default function KnowledgeBase() {
       setIsSubmitting(false);
     } else if (hasSuccess(actionData)) {
       shopify.toast.show(actionData.message);
-      // Add to processing queue with fake progress
-      addToProcessingQueue(
-        actionData.documentId,
-        actionData.filename || "Document",
-      );
       setIsSubmitting(false);
       // Clear form after successful submission
       clearForm();
-      // Refresh documents list after successful processing
-      documentsFetcher.load("/app/rag");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actionData]);
 
   // Convert database documents to DataSource format
   useEffect(() => {
-    const convertedSources: DataSource[] = currentDocuments.map((doc: any) => ({
+    const convertedSources: DataSource[] = documents.map((doc: any) => ({
       id: doc.id,
       type: doc.fileType,
       name: doc.originalName,
@@ -185,205 +179,7 @@ export default function KnowledgeBase() {
       size: doc.fileSize,
     }));
     setDataSources(convertedSources);
-  }, [currentDocuments]);
-
-  // Complete processing item
-  const completeProcessingItem = useCallback(
-    (itemId: string, success: boolean, error?: string) => {
-      const item = processingItems.current.get(itemId);
-      if (!item) return;
-
-      const updatedItem: ProcessingItem = {
-        ...item,
-        progress: success ? 100 : 0,
-        stage: success ? "Completed successfully" : "Failed",
-        status: success ? "completed" : "failed",
-        error,
-      };
-
-      processingItems.current.set(itemId, updatedItem);
-      setProcessingQueue((prev) =>
-        prev.map((p) => (p.id === itemId ? updatedItem : p)),
-      );
-
-      // Clear the progress interval
-      const interval = progressIntervals.current.get(itemId);
-      if (interval) {
-        clearInterval(interval);
-        progressIntervals.current.delete(itemId);
-      }
-
-      // Remove from queue after 5 seconds
-      setTimeout(() => {
-        setProcessingQueue((prev) => prev.filter((p) => p.id !== itemId));
-        processingItems.current.delete(itemId);
-
-        // Refresh documents list when processing completes
-        if (success) {
-          documentsFetcher.load("/app/rag");
-        }
-      }, 5000);
-    },
-    [documentsFetcher],
-  );
-
-  // Check individual job status
-  const checkJobStatus = useCallback(
-    async (jobId: string, itemId: string) => {
-      try {
-        const response = await fetch(`/app/rag/job-status?jobId=${jobId}`);
-        if (response.ok) {
-          const jobStatus = await response.json();
-
-          if (jobStatus.status === "completed") {
-            completeProcessingItem(itemId, true);
-          } else if (jobStatus.status === "failed") {
-            completeProcessingItem(itemId, false, "Job failed");
-          } else if (jobStatus.status === "active" && jobStatus.progress > 0) {
-            // Update progress with real job progress
-            const item = processingItems.current.get(itemId);
-            if (item) {
-              const updatedItem = {
-                ...item,
-                progress: Math.max(item.progress, jobStatus.progress),
-              };
-              processingItems.current.set(itemId, updatedItem);
-              setProcessingQueue((prev) =>
-                prev.map((p) => (p.id === itemId ? updatedItem : p)),
-              );
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error checking job status:", error);
-      }
-    },
-    [completeProcessingItem],
-  );
-
-  // Add item to processing queue with fake progress
-  const addToProcessingQueue = useCallback(
-    (jobId: string, filename: string) => {
-      const itemId = `processing-${Date.now()}`;
-      const newItem: ProcessingItem = {
-        id: itemId,
-        jobId,
-        type: "Documents / Files",
-        name: filename,
-        content: "Document being processed",
-        progress: 0,
-        stage: "Initializing...",
-        startTime: Date.now(),
-        status: "processing",
-      };
-
-      processingItems.current.set(itemId, newItem);
-      setProcessingQueue((prev) => [...prev, newItem]);
-
-      // Start fake progress simulation
-      startFakeProgress(itemId);
-    },
-    [],
-  );
-
-  // Start fake progress simulation
-  const startFakeProgress = useCallback(
-    (itemId: string) => {
-      const stages = [
-        { progress: 10, stage: "Uploading file..." },
-        { progress: 25, stage: "Extracting content..." },
-        { progress: 40, stage: "Processing text..." },
-        { progress: 60, stage: "Generating embeddings..." },
-        { progress: 80, stage: "Indexing content..." },
-        { progress: 95, stage: "Finalizing..." },
-      ];
-
-      let currentStage = 0;
-      const interval = setInterval(() => {
-        const item = processingItems.current.get(itemId);
-        if (!item) {
-          clearInterval(interval);
-          return;
-        }
-
-        if (currentStage < stages.length) {
-          const stage = stages[currentStage];
-          const updatedItem = {
-            ...item,
-            progress: stage.progress,
-            stage: stage.stage,
-          };
-
-          processingItems.current.set(itemId, updatedItem);
-          setProcessingQueue((prev) =>
-            prev.map((p) => (p.id === itemId ? updatedItem : p)),
-          );
-          currentStage++;
-        } else {
-          // Check real job status when we reach 95%
-          if (item.jobId) {
-            checkJobStatus(item.jobId, itemId);
-          }
-        }
-      }, 2000); // Update every 2 seconds
-
-      progressIntervals.current.set(itemId, interval);
-    },
-    [checkJobStatus],
-  );
-
-  // Update processing queue based on queue stats
-  useEffect(() => {
-    const queueItems: ProcessingItem[] = [];
-
-    // Only show queue stats items if we don't have any fake progress items
-    const hasFakeProgressItems = processingItems.current.size > 0;
-
-    if (!hasFakeProgressItems) {
-      if (currentQueueStats.waiting > 0) {
-        queueItems.push({
-          id: "waiting",
-          type: "Documents / Files",
-          name: `${currentQueueStats.waiting} documents waiting`,
-          content: "Documents in processing queue",
-          progress: 0,
-          stage: "Waiting in queue...",
-          startTime: Date.now(),
-          status: "waiting",
-        });
-      }
-
-      if (currentQueueStats.active > 0) {
-        queueItems.push({
-          id: "active",
-          type: "Documents / Files",
-          name: `${currentQueueStats.active} documents processing`,
-          content: "Documents being processed",
-          progress: 50,
-          stage: "Processing...",
-          startTime: Date.now(),
-          status: "processing",
-        });
-      }
-    }
-
-    // Update existing processing items based on queue status
-    processingItems.current.forEach((item, itemId) => {
-      if (item.status === "processing") {
-        // Check if job is completed or failed based on queue stats
-        if (currentQueueStats.completed > 0) {
-          completeProcessingItem(itemId, true);
-        } else if (currentQueueStats.failed > 0) {
-          completeProcessingItem(itemId, false, "Processing failed");
-        }
-      }
-    });
-
-    setProcessingQueue((prev) => {
-      const existingItems = prev.filter((p) => p.id.startsWith("processing-"));
-      return [...existingItems, ...queueItems];
-    });
-  }, [currentQueueStats, completeProcessingItem]);
+  }, [documents]);
 
   const handleTabChange = useCallback((selectedTabIndex: number) => {
     setSelectedTab(selectedTabIndex);
@@ -397,10 +193,6 @@ export default function KnowledgeBase() {
     setIsSubmitting(true);
     // This will be handled by the Form component
     // The actual processing is done in the action function
-  }, []);
-
-  const handleDeleteSource = useCallback((id: string) => {
-    setDataSources((prev) => prev.filter((source) => source.id !== id));
   }, []);
 
   // Clear form after successful submission
@@ -422,9 +214,9 @@ export default function KnowledgeBase() {
       case 0:
         return files.length > 0;
       case 1:
-        return urlInput.trim().length > 0;
-      case 2:
         return textInput.trim().length > 0;
+      case 2:
+        return urlInput.trim().length > 0;
       default:
         return false;
     }
@@ -450,50 +242,25 @@ export default function KnowledgeBase() {
     >
       <Layout>
         <Layout.Section>
-          {selectedTab === 0 ? (
-            // File upload form
-            <Form method="post" encType="multipart/form-data">
-              <input type="hidden" name="_action" value="upload" />
-              <DataSourceForm
-                selectedTab={selectedTab}
-                urlInput={urlInput}
-                textInput={textInput}
-                files={files}
-                onTabChange={handleTabChange}
-                onUrlInputChange={setUrlInput}
-                onTextInputChange={setTextInput}
-                onFilesChange={setFiles}
-                onStartProcessing={handleStartProcessing}
-                canProcess={canProcess()}
-                isLoading={isSubmitting}
-              />
-            </Form>
-          ) : selectedTab === 2 ? (
-            // Text processing form
-            <Form method="post">
-              <input type="hidden" name="_action" value="process-text" />
-              <input type="hidden" name="text" value={textInput} />
-              <input
-                type="hidden"
-                name="sourceName"
-                value={`Text snippet (${textInput.length} chars)`}
-              />
-              <DataSourceForm
-                selectedTab={selectedTab}
-                urlInput={urlInput}
-                textInput={textInput}
-                files={files}
-                onTabChange={handleTabChange}
-                onUrlInputChange={setUrlInput}
-                onTextInputChange={setTextInput}
-                onFilesChange={setFiles}
-                onStartProcessing={handleStartProcessing}
-                canProcess={canProcess()}
-                isLoading={isSubmitting}
-              />
-            </Form>
-          ) : (
-            // URL form (not implemented yet)
+          <Form
+            method="post"
+            encType={selectedTab === 1 ? undefined : "multipart/form-data"}
+          >
+            <input
+              type="hidden"
+              name="_action"
+              value={selectedTab === 1 ? "process-text" : "upload"}
+            />
+            {selectedTab === 1 && (
+              <>
+                <input type="hidden" name="text" value={textInput} />
+                <input
+                  type="hidden"
+                  name="sourceName"
+                  value={`Text snippet (${textInput.length} chars)`}
+                />
+              </>
+            )}
             <DataSourceForm
               selectedTab={selectedTab}
               urlInput={urlInput}
@@ -507,22 +274,12 @@ export default function KnowledgeBase() {
               canProcess={canProcess()}
               isLoading={isSubmitting}
             />
-          )}
+          </Form>
         </Layout.Section>
-
-        {/* Processing Queue */}
-        {processingQueue.length > 0 && (
-          <Layout.Section>
-            <ProcessingQueue processingQueue={processingQueue} />
-          </Layout.Section>
-        )}
 
         {/* Data Sources List */}
         <Layout.Section>
-          <DataSourceList
-            dataSources={dataSources}
-            onDeleteSource={handleDeleteSource}
-          />
+          <DataSourceList dataSources={dataSources} />
         </Layout.Section>
       </Layout>
     </Page>

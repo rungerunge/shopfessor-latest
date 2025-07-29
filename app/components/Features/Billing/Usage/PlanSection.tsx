@@ -39,7 +39,11 @@ export function PlanSelection({
           <Grid.Cell key={plan.id} columnSpan={{ xs: 6, sm: 3, md: 3, lg: 4 }}>
             <Card>
               <BlockStack gap="400">
-                {plan.isFeatured && <Badge tone="success">Most Popular</Badge>}
+                {plan.isFeatured && (
+                  <div>
+                    <Badge tone="success">Most Popular</Badge>
+                  </div>
+                )}
                 <Text variant="headingMd" as="h3">
                   {plan.name}
                 </Text>

@@ -319,10 +319,10 @@ export async function getMonthlyUsage(shopId: string, subscriptionId: string) {
   const monthlyUsageData = await prisma.usageCharge.aggregate({
     where: {
       shopId,
-      subscriptionId,
-      createdAt: {
-        gte: startOfMonth,
-      },
+      // subscriptionId,
+      // createdAt: {
+      //   gte: startOfMonth,
+      // },
     },
     _sum: {
       price: true,
@@ -342,7 +342,7 @@ export async function createUsageRecord(data: {
   description: string;
   amount: number;
   shopId: string;
-  shopifyId?: string;
+  shopifyId: string;
 }) {
   return await prisma.usageCharge.create({
     data: {
@@ -354,7 +354,6 @@ export async function createUsageRecord(data: {
       isTest: process.env.NODE_ENV !== "production",
       shopId: data.shopId,
       planId: null,
-      subscriptionId: null,
     },
   });
 }

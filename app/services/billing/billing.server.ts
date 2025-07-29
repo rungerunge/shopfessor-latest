@@ -1,4 +1,4 @@
-import { BillingError } from "../utils/error-handling.server";
+import { BillingError } from "../../utils/error-handling.server";
 import prisma from "app/lib/db.server";
 import { Coupon } from "@prisma/client";
 import { authenticate } from "app/lib/shopify.server";

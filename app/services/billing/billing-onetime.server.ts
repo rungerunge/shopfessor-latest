@@ -1,6 +1,5 @@
-import { authenticate } from "../lib/shopify.server";
-import prisma from "../lib/db.server";
-import type { Plan, UsageStats, Purchase } from "../types/billing";
+import prisma from "../../lib/db.server";
+import type { Plan, UsageStats, Purchase } from "../../types/billing";
 
 // GraphQL mutation for one-time purchase
 const APP_ONE_TIME_PURCHASE_CREATE = `#graphql
