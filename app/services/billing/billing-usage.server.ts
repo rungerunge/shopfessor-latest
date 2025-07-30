@@ -5,6 +5,7 @@ import {
   CREATE_USAGE_SUBSCRIPTION,
 } from "app/graphql/billing";
 import { getCurrentSubscriptions } from "app/services/billing/billing.server";
+import logger from "app/utils/logger";
 
 export async function getCurrentShop(shop: string) {
   return await prisma.shop.findFirst({
@@ -183,7 +184,7 @@ export async function getSubscriptionData(request: Request, shop: any) {
     // Fetch current subscriptions
     const { subscriptions, errors } = await getCurrentSubscriptions(request);
 
-    console.log("🔴 All subscriptions: ", JSON.stringify(subscriptions));
+    logger.info("🔴 All subscriptions: ", JSON.stringify(subscriptions));
 
     if (subscriptions.length > 0) {
       // Filter to find usage-based subscriptions only
@@ -194,7 +195,7 @@ export async function getSubscriptionData(request: Request, shop: any) {
         ),
       );
 
-      console.log(
+      logger.info(
         "🟡 Usage-only subscriptions: ",
         JSON.stringify(usageSubscriptions),
       );
@@ -214,7 +215,7 @@ export async function getSubscriptionData(request: Request, shop: any) {
             item.plan.pricingDetails.__typename === "AppUsagePricing",
         );
 
-        console.log("🥬 Usage line item: ", JSON.stringify(usageLineItem));
+        logger.info("🥬 Usage line item: ", JSON.stringify(usageLineItem));
 
         if (usageLineItem) {
           usageLineItemId = usageLineItem.id;
@@ -244,7 +245,7 @@ export async function getSubscriptionData(request: Request, shop: any) {
           monthlyUsage.isNearCap = usagePercentage >= 80;
           monthlyUsage.isOverCap = usagePercentage >= 100;
 
-          console.log("📊 Usage summary: ", {
+          logger.info("📊 Usage summary: ", {
             totalAmount: monthlyUsage.totalAmount,
             cappedAmount: monthlyUsage.cappedAmount,
             usagePercentage: usagePercentage.toFixed(2) + "%",
@@ -252,10 +253,10 @@ export async function getSubscriptionData(request: Request, shop: any) {
             isOverCap: monthlyUsage.isOverCap,
           });
         } else {
-          console.log("⚠️ No usage line item found in subscription");
+          logger.info("⚠️ No usage line item found in subscription");
         }
       } else {
-        console.log(
+        logger.info(
           "⚠️ No usage-based subscriptions found. Available subscriptions have only recurring pricing.",
         );
 
@@ -264,16 +265,16 @@ export async function getSubscriptionData(request: Request, shop: any) {
           const pricingTypes = sub.lineItems.map(
             (item: any) => item.plan.pricingDetails.__typename,
           );
-          console.log(
+          logger.info(
             `📋 Subscription ${index + 1} (${sub.name}): ${pricingTypes.join(", ")}`,
           );
         });
       }
     } else {
-      console.log("ℹ️ No subscriptions found");
+      logger.info("ℹ️ No subscriptions found");
     }
   } catch (error) {
-    console.error("❌ Error fetching subscription data:", error);
+    logger.error("❌ Error fetching subscription data:", error);
   }
 
   return {
