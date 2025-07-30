@@ -5,7 +5,6 @@ import {
   InlineStack,
   Badge,
   Divider,
-  Box,
   Button,
 } from "@shopify/polaris";
 import type { Plan } from "app/types/billing";

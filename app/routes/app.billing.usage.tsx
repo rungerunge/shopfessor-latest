@@ -11,29 +11,23 @@ import {
   useFetcher,
   useSearchParams,
 } from "@remix-run/react";
-import { Page, Layout, Frame } from "@shopify/polaris";
+import { Page, Layout, Frame, Banner, List } from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../lib/shopify.server";
-import {
-  handleActionError,
-  createSuccessResponse,
-} from "app/utils/error-handling.server";
+import { createSuccessResponse } from "app/utils/error-handling.server";
 import {
   getCurrentShop,
   getActivePlans,
   getUsageRecords,
-  getMonthlyUsage,
-  createUsageRecord,
-  CREATE_USAGE_SUBSCRIPTION,
-  CREATE_USAGE_RECORD,
+  getSubscriptionData,
+  createSubscription,
+  createUsageRecordWithValidation,
 } from "app/services/billing/billing-usage.server";
 import { SubscriptionStatusCard } from "app/components/Features/Billing/Usage/SubscriptionStatusCard";
 import { UsageRecordsTable } from "app/components/Features/Billing/Usage/UsageRecordTable";
 import { PlanSelection } from "app/components/Features/Billing/Usage/PlanSection";
 import { UsageRecordForm } from "app/components/Features/Billing/Usage/UsageRecordForm";
-import { LoaderData, UsageActivity } from "app/types/billing";
-import prisma from "app/lib/db.server";
-import { getCurrentSubscriptions } from "app/services/billing/billing.server";
+import type { LoaderData, UsageActivity } from "app/types/billing";
 
 // Simulated usage activity types
 const USAGE_ACTIVITIES: UsageActivity[] = [
@@ -50,7 +44,7 @@ const USAGE_ACTIVITIES: UsageActivity[] = [
 
 // Loader function
 export async function loader({ request }: LoaderFunctionArgs) {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   const url = new URL(request.url);
   const page = parseInt(url.searchParams.get("page") || "1");
   const pageSize = 10;
@@ -59,84 +53,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (!shop) {
     throw new Error("Shop not found");
   }
+  // Get subscription data using service
+  const {
+    currentSubscription,
+    usageLineItemId,
+    subscriptionData,
+    monthlyUsage,
+  } = await getSubscriptionData(request, shop);
 
-  let currentSubscription = null;
-  let usageLineItemId = null;
-  let subscriptionData = {
-    planName: null,
-    status: null,
-    cappedAmount: 0,
-    cappedCurrency: "USD",
-    recurringAmount: 0,
-    recurringCurrency: "USD",
-    usageTerms: null,
-    currentPeriodEnd: null,
-  };
-  let monthlyUsage = {
-    totalAmount: 0,
-    recordCount: 0,
-    cappedAmount: 0,
-    isNearCap: false,
-    isOverCap: false,
-  };
-
-  try {
-    // Fetch current subscription
-    const { subscriptions, errors } = await getCurrentSubscriptions(request);
-
-    if (subscriptions.length > 0) {
-      currentSubscription = subscriptions[0];
-
-      subscriptionData.planName = currentSubscription.name;
-      subscriptionData.status = currentSubscription.status;
-      subscriptionData.currentPeriodEnd = currentSubscription.currentPeriodEnd;
-
-      const usageLineItem = currentSubscription.lineItems.find(
-        (item: any) =>
-          item.plan.pricingDetails.__typename === "AppUsagePricing",
-      );
-
-      const recurringLineItem = currentSubscription.lineItems.find(
-        (item: any) =>
-          item.plan.pricingDetails.__typename === "AppRecurringPricing",
-      );
-
-      if (usageLineItem) {
-        usageLineItemId = usageLineItem.id;
-        subscriptionData.cappedAmount = parseFloat(
-          usageLineItem.plan.pricingDetails.cappedAmount.amount,
-        );
-        subscriptionData.cappedCurrency =
-          usageLineItem.plan.pricingDetails.cappedAmount.currencyCode;
-        subscriptionData.usageTerms = usageLineItem.plan.pricingDetails.terms;
-        monthlyUsage.cappedAmount = subscriptionData.cappedAmount;
-      }
-
-      if (recurringLineItem) {
-        subscriptionData.recurringAmount = parseFloat(
-          recurringLineItem.plan.pricingDetails.price.amount,
-        );
-        subscriptionData.recurringCurrency =
-          recurringLineItem.plan.pricingDetails.price.currencyCode;
-      }
-
-      const usageData = await getMonthlyUsage(shop.id, currentSubscription.id);
-
-      monthlyUsage.totalAmount = usageData.totalAmount;
-      monthlyUsage.recordCount = usageData.recordCount;
-
-      // Check cap status
-      const usagePercentage =
-        monthlyUsage.cappedAmount > 0
-          ? (monthlyUsage.totalAmount / monthlyUsage.cappedAmount) * 100
-          : 0;
-
-      monthlyUsage.isNearCap = usagePercentage >= 80;
-      monthlyUsage.isOverCap = usagePercentage >= 100;
-    }
-  } catch (error) {
-    console.error("Error fetching subscription:", error);
-  }
 
   const plans = await getActivePlans();
   const { records: usageRecords, pagination } = await getUsageRecords(
@@ -170,69 +94,8 @@ export async function action({ request }: ActionFunctionArgs) {
 
   if (actionType === "create_subscription") {
     const planId = formData.get("planId") as string;
-    const selectedPlan = await prisma.plan.findUnique({
-      where: {
-        id: planId,
-        isActive: true,
-      },
-    });
-
-    if (!selectedPlan) {
-      return handleActionError("Invalid plan selected", "create_subscription");
-    }
-
-    let usageData = {
-      usageCappedAmount: 100.0,
-      usageTerms: "$0.10 per API call up to $100/month",
-    };
-
-    if (Number(selectedPlan.monthlyPrice) >= 30) {
-      usageData = {
-        usageCappedAmount: 500.0,
-        usageTerms: "$0.08 per API call up to $500/month",
-      };
-    }
-    if (Number(selectedPlan.monthlyPrice) >= 100) {
-      usageData = {
-        usageCappedAmount: 2000.0,
-        usageTerms: "$0.05 per API call up to $2000/month",
-      };
-    }
-
-    const subscriptionInput = {
-      name: selectedPlan.name,
-      returnUrl: `https://${session.shop}/admin/apps/${process.env.SHOPIFY_API_KEY}/app/billing`,
-      usageTerms: usageData.usageTerms,
-      usageCappedAmount: usageData.usageCappedAmount,
-      usageCurrencyCode: "USD",
-      recurringAmount: Number(selectedPlan.monthlyPrice),
-      recurringCurrencyCode: "USD",
-      test: process.env.NODE_ENV !== "production",
-    };
-
-    const response = await admin.graphql(CREATE_USAGE_SUBSCRIPTION, {
-      variables: subscriptionInput,
-    });
-
-    const data = await response.json();
-
-    if (data.data?.appSubscriptionCreate?.userErrors?.length > 0) {
-      const errors = data.data.appSubscriptionCreate.userErrors;
-      return handleActionError(
-        errors.map((err: any) => err.message).join(", "),
-        "create_subscription",
-      );
-    }
-
-    const confirmationUrl = data.data?.appSubscriptionCreate?.confirmationUrl;
-    if (!confirmationUrl) {
-      return handleActionError(
-        "No confirmation URL received",
-        "create_subscription",
-      );
-    }
-
-    return redirect(confirmationUrl!, { target: "_top" });
+    const confirmationUrl = await createSubscription(admin, session, planId);
+    return redirect(confirmationUrl, { target: "_top" });
   }
 
   if (actionType === "create_usage_record") {
@@ -243,74 +106,13 @@ export async function action({ request }: ActionFunctionArgs) {
     ) as string;
 
     try {
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-
-      const monthlyTotal = await prisma.usageCharge.aggregate({
-        where: {
-          shopId: shop.id,
-          createdAt: {
-            gte: startOfMonth,
-          },
-        },
-        _sum: {
-          price: true,
-        },
-      });
-
-      const currentMonthlyUsage = Number(monthlyTotal._sum.price || 0);
-      const monthlyCapAmount = 500.0; // Get this from subscription data
-
-      if (currentMonthlyUsage + amount > monthlyCapAmount) {
-        return json(
-          {
-            success: false,
-            error: `Usage record would exceed monthly cap of $${monthlyCapAmount}. Current usage: $${currentMonthlyUsage}`,
-          },
-          { status: 400 },
-        );
-      }
-
-      // Create usage record in Shopify
-      const response = await admin.graphql(CREATE_USAGE_RECORD, {
-        variables: {
-          description,
-          price: {
-            amount,
-            currencyCode: "USD",
-          },
-          subscriptionLineItemId,
-        },
-      });
-
-      const data = await response.json();
-
-      if (data.data?.appUsageRecordCreate?.userErrors?.length > 0) {
-        const errors = data.data.appUsageRecordCreate.userErrors;
-        return json(
-          {
-            success: false,
-            error: errors.map((err: any) => err.message).join(", "),
-          },
-          { status: 400 },
-        );
-      }
-
-      const shopifyUsageRecord =
-        data.data?.appUsageRecordCreate?.appUsageRecord;
-
-      await createUsageRecord({
+      const result = await createUsageRecordWithValidation(admin, shop, {
         description,
         amount,
-        shopId: shop.id,
-        shopifyId: shopifyUsageRecord?.id,
+        subscriptionLineItemId,
       });
 
-      return createSuccessResponse({
-        usageRecordId: shopifyUsageRecord?.id,
-        message: "Usage record created successfully",
-      });
+      return createSuccessResponse(result);
     } catch (error) {
       console.error("Error creating usage record:", error);
       return json(
@@ -424,6 +226,16 @@ export default function UsageSubscriptionPage() {
     setSearchParams(newSearchParams);
   };
 
+  const scrollToPlanSelection = () => {
+    const planSelectionElement = document.getElementById("plan-selection");
+    if (planSelectionElement) {
+      planSelectionElement.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  };
+
   return (
     <Frame>
       <Page
@@ -431,18 +243,44 @@ export default function UsageSubscriptionPage() {
         backAction={{ content: "Billing", url: "/app/billing" }}
       >
         <Layout>
-          <Layout.Section>
-            {/* Current Subscription Status */}
-            {currentSubscription && (
+          {/* No Subscription Warning Banner */}
+          {!currentSubscription && (
+            <Layout.Section>
+              <Banner
+                title="Before you can start tracking usage and billing, you need to subscribe to a plan:"
+                action={{
+                  content: "Choose Plan",
+                  onAction: scrollToPlanSelection,
+                }}
+                tone="warning"
+              >
+                <List>
+                  <List.Item>
+                    You don't have an active subscription. Select a plan below
+                    to start using our billing features.
+                  </List.Item>
+                  <List.Item>
+                    Usage tracking and billing records will be available once
+                    you subscribe to a plan.
+                  </List.Item>
+                </List>
+              </Banner>
+            </Layout.Section>
+          )}
+
+          {/* Current Subscription Status */}
+          {currentSubscription && (
+            <Layout.Section>
               <SubscriptionStatusCard
                 subscriptionData={subscriptionData}
                 monthlyUsage={monthlyUsage}
               />
-            )}
-          </Layout.Section>
-          <Layout.Section variant="oneThird">
-            {/* Create Usage Record */}
-            {currentSubscription && (
+            </Layout.Section>
+          )}
+
+          {/* Create Usage Record - Only show if subscribed */}
+          {currentSubscription && (
+            <Layout.Section variant="oneThird">
               <UsageRecordForm
                 activities={USAGE_ACTIVITIES}
                 selectedActivity={selectedActivity}
@@ -459,10 +297,10 @@ export default function UsageSubscriptionPage() {
                 isLoading={isUsageLoading}
                 isDisabled={!usageLineItemId}
               />
-            )}
-          </Layout.Section>
+            </Layout.Section>
+          )}
 
-          {/* Usage Records Table */}
+          {/* Usage Records Table - Only show if subscribed */}
           {currentSubscription && (
             <Layout.Section>
               <UsageRecordsTable
@@ -475,12 +313,14 @@ export default function UsageSubscriptionPage() {
 
           {/* Plan Selection */}
           <Layout.Section>
-            <PlanSelection
-              plans={plans}
-              onSubscribe={handleSubscribe}
-              isLoading={isSubscriptionLoading}
-              selectedPlanId={selectedPlan}
-            />
+            <div id="plan-selection">
+              <PlanSelection
+                plans={plans}
+                onSubscribe={handleSubscribe}
+                isLoading={isSubscriptionLoading}
+                selectedPlanId={selectedPlan}
+              />
+            </div>
           </Layout.Section>
         </Layout>
       </Page>
