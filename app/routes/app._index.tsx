@@ -19,6 +19,9 @@ import {
   ReceiptDollarFilledIcon,
   AppsIcon,
   ClockIcon,
+  SearchIcon,
+  DiscountIcon,
+  AppsFilledIcon,
 } from "@shopify/polaris-icons";
 import { TitleBar } from "@shopify/app-bridge-react";
 
@@ -30,7 +33,6 @@ export default function Index() {
         "Manage your Shopify store's product catalog, inventory levels, and product variants directly from the app.",
       path: "/app/products",
       icon: CartIcon,
-
       backgroundColorToken: "bg-fill-success",
     },
     {
@@ -42,12 +44,36 @@ export default function Index() {
       backgroundColorToken: "bg-fill-info",
     },
     {
+      title: "Knowledge Base (RAG)",
+      description:
+        "Access your AI-powered knowledge base with RAG (Retrieval-Augmented Generation) for intelligent product recommendations and customer support.",
+      path: "/app/rag",
+      icon: SearchIcon,
+      backgroundColorToken: "bg-fill-primary",
+    },
+    {
       title: "Billing",
       description:
         "Access your Shopify app's subscription details, view usage-based charges, and manage your billing information.",
       path: "/app/billing",
       icon: ReceiptDollarFilledIcon,
       backgroundColorToken: "bg-fill-warning",
+    },
+    {
+      title: "Discounts",
+      description:
+        "Create and manage promotional discounts, coupon codes, and special offers to boost sales and customer engagement.",
+      path: "/app/discounts",
+      icon: DiscountIcon,
+      backgroundColorToken: "bg-fill-success",
+    },
+    {
+      title: "Metafields",
+      description:
+        "Manage custom product metadata, additional fields, and structured data to enhance your product information and search capabilities.",
+      path: "/app/metafields",
+      icon: AppsFilledIcon,
+      backgroundColorToken: "bg-fill-info",
     },
     {
       title: "Components",
@@ -63,7 +89,6 @@ export default function Index() {
         "Monitor the status and progress of background jobs, asynchronous tasks, and system processes initiated by your Shopify app.",
       path: "/app/admin/queues",
       icon: ClockIcon,
-
       backgroundColorToken: "bg-surface-secondary",
     },
   ];

@@ -1,32 +1,6 @@
+import { APP_ONE_TIME_PURCHASE_CREATE } from "app/graphql/billing";
 import prisma from "../../lib/db.server";
 import type { Plan, UsageStats, Purchase } from "../../types/billing";
-
-// GraphQL mutation for one-time purchase
-const APP_ONE_TIME_PURCHASE_CREATE = `#graphql
-  mutation AppPurchaseOneTimeCreate(
-    $name: String!,
-    $price: MoneyInput!,
-    $returnUrl: URL!
-    $test: Boolean
-  ) {
-    appPurchaseOneTimeCreate(
-      name: $name,
-      returnUrl: $returnUrl,
-      price: $price
-      test: $test
-    ) {
-      userErrors {
-        field
-        message
-      }
-      appPurchaseOneTime {
-        createdAt
-        id
-      }
-      confirmationUrl
-    }
-  }
-`;
 
 export async function getCurrentUsage(): Promise<UsageStats> {
   // In a real app, you'd fetch this from your database

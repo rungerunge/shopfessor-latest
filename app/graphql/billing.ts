@@ -1,37 +1,58 @@
 export const GET_CURRENT_SUBSCRIPTIONS = `#graphql
-  query GetCurrentSubscription {
-    currentAppInstallation {
-      activeSubscriptions {
-        id
-        name
-        status
-        createdAt
-        currentPeriodEnd
-        lineItems {
-          id
-          plan {
-            pricingDetails {
-              __typename
-              ... on AppUsagePricing {
-                terms
-                cappedAmount {
-                  amount
-                  currencyCode
-                }
-              }
-              ... on AppRecurringPricing {
-                price {
-                  amount
-                  currencyCode
+ query GetCurrentSubscriptions {
+          currentAppInstallation {
+            activeSubscriptions {
+              id
+              name
+              status
+              createdAt
+              currentPeriodEnd
+              lineItems {
+                id
+                plan {
+                  pricingDetails {
+                    __typename
+                      ... on AppUsagePricing {
+                        terms
+                        cappedAmount {
+                          amount
+                          currencyCode
+                        }
+                      }
+                    ... on AppRecurringPricing {
+                      price {
+                        amount
+                        currencyCode
+                      }
+                      interval
+                      discount {
+                        durationLimitInIntervals
+                        remainingDurationInIntervals
+                        priceAfterDiscount {
+                          amount
+                          currencyCode
+                        }
+                        value {
+                          __typename
+                          ... on AppSubscriptionDiscountAmount {
+                            amount {
+                              amount
+                              currencyCode
+                            }
+                          }
+                          ... on AppSubscriptionDiscountPercentage {
+                            percentage
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
           }
         }
-      }
-    }
-  }
-`;
+    `;
 
 // GraphQL Mutations
 export const CREATE_USAGE_SUBSCRIPTION = `#graphql
@@ -88,6 +109,28 @@ export const CREATE_USAGE_SUBSCRIPTION = `#graphql
             }
           }
         }
+      }
+    }
+  }
+`;
+
+export const CREATE_USAGE_RECORD = `#graphql
+  mutation appUsageRecordCreate(
+    $description: String!,
+    $price: MoneyInput!,
+    $subscriptionLineItemId: ID!
+  ) {
+    appUsageRecordCreate(
+      description: $description,
+      price: $price,
+      subscriptionLineItemId: $subscriptionLineItemId
+    ) {
+      userErrors {
+        field
+        message
+      }
+      appUsageRecord {
+        id
       }
     }
   }

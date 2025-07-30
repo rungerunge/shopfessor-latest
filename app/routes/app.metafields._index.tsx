@@ -24,7 +24,7 @@ import { useMetafieldForm } from "app/hooks/useMetafieldForm";
 import {
   getProductMetafields,
   setMetafields,
-} from "app/models/metafields.server";
+} from "app/services/metafields/metafields.server";
 
 interface ActionData {
   success?: boolean;
@@ -92,13 +92,15 @@ export default function MetafieldsManage() {
   const isSubmitting = navigation.state === "submitting";
   const isLoading = navigation.state === "loading";
 
-  const { formState, setField, fillDummyData, submit } = useMetafieldForm({
-    onSubmit: () => setIsCreateModalOpen(false),
-  });
+  const { formState, setField, fillDummyData, submit } = useMetafieldForm();
+
+  // Demo product ID
+  const demoProductId = "gid://shopify/Product/8262225133740";
 
   useEffect(() => {
     if (actionData?.success) {
       shopify.toast.show("Metafield created successfully!");
+      setIsCreateModalOpen(false);
     } else if (actionData?.errors) {
       const errorMessage = actionData.errors.map((e) => e.message).join(", ");
       shopify.toast.show(errorMessage, { isError: true });
@@ -149,6 +151,12 @@ export default function MetafieldsManage() {
     >
       <Layout>
         <Layout.Section>
+          <div style={{ marginBottom: "1rem", padding: "1rem", backgroundColor: "#f6f6f7", borderRadius: "8px", border: "1px solid #e1e3e5" }}>
+            <p style={{ margin: 0, color: "#6d7175", fontSize: "14px" }}>
+              <strong>Demo Mode:</strong> This page demonstrates metafield management for a specific product.
+              All metafields are created for product ID: <code>{demoProductId}</code>
+            </p>
+          </div>
           <MetafieldTable metafields={metafields} />
         </Layout.Section>
       </Layout>
@@ -179,13 +187,22 @@ export default function MetafieldsManage() {
           <FormLayout>
             <FormLayout.Group>
               <InlineStack gap={"200"}>
-                <Button onClick={() => fillDummyData("text")}>
+                <Button
+                  onClick={() => fillDummyData("text")}
+                  disabled={isSubmitting}
+                >
                   Fill Text Example
                 </Button>
-                <Button onClick={() => fillDummyData("number")}>
+                <Button
+                  onClick={() => fillDummyData("number")}
+                  disabled={isSubmitting}
+                >
                   Fill Number Example
                 </Button>
-                <Button onClick={() => fillDummyData("json")}>
+                <Button
+                  onClick={() => fillDummyData("json")}
+                  disabled={isSubmitting}
+                >
                   Fill JSON Example
                 </Button>
               </InlineStack>

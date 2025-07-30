@@ -21,8 +21,11 @@ import {
 } from "@shopify/polaris";
 import { authenticate } from "../lib/shopify.server";
 import { LoaderData, yearlyDiscount } from "app/utils/billing";
-import { verifyCoupon } from "app/services/coupon.server";
-import { createSubscription } from "app/services/billing/billing.server";
+import { verifyCoupon } from "app/services/billing/coupon.server";
+import {
+  createSubscription,
+  getCurrentSubscriptions,
+} from "app/services/billing/billing.server";
 import {
   handleActionError,
   createSuccessResponse,
@@ -30,7 +33,6 @@ import {
 import type { AppliedCouponData } from "app/types/coupon";
 import prisma from "app/lib/db.server";
 import { useAppBridge } from "@shopify/app-bridge-react";
-import { getCurrentSubscriptions } from "app/services/billing/billing.server";
 import { PricingCard } from "app/components/Features/Billing/Reccuring/PricingCard";
 import { PromoCard } from "app/components/Features/Billing/Reccuring/PromoCard";
 
