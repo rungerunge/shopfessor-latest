@@ -10,12 +10,10 @@ interface FormState {
 
 interface UseMetafieldFormProps {
   initialData?: Partial<FormState>;
-  onSubmit?: () => void;
 }
 
 export function useMetafieldForm({
   initialData,
-  onSubmit,
 }: UseMetafieldFormProps = {}) {
   const submit = useSubmit();
 
@@ -82,8 +80,7 @@ export function useMetafieldForm({
     );
     formData.append("_action", "create");
     submit(formData, { method: "post" });
-    onSubmit?.();
-  }, [formState, submit, onSubmit]);
+  }, [formState, submit]);
 
   return {
     formState,
