@@ -61,7 +61,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     monthlyUsage,
   } = await getSubscriptionData(request, shop);
 
-
   const plans = await getActivePlans();
   const { records: usageRecords, pagination } = await getUsageRecords(
     shop.id,

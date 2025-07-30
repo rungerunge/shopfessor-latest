@@ -8,7 +8,10 @@ const formatArgs = (args: any[]): string => {
       if (typeof arg === "object") {
         return JSON.stringify(arg, null, 2);
       }
-      if (typeof arg === "string" && (arg.startsWith("{") || arg.startsWith("["))) {
+      if (
+        typeof arg === "string" &&
+        (arg.startsWith("{") || arg.startsWith("["))
+      ) {
         try {
           return JSON.stringify(JSON.parse(arg), null, 2);
         } catch {
