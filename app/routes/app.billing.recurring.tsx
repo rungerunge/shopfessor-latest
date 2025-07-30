@@ -21,7 +21,7 @@ import {
 } from "@shopify/polaris";
 import { authenticate } from "../lib/shopify.server";
 import { LoaderData, yearlyDiscount } from "app/utils/billing";
-import { verifyCoupon } from "app/services/coupon.server";
+import { verifyCoupon } from "app/services/billing/coupon.server";
 import {
   createSubscription,
   getCurrentSubscriptions,

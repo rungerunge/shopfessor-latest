@@ -24,7 +24,7 @@ import {
 } from "@shopify/polaris";
 import { useState, useCallback, useEffect } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
-import { createDiscount, getDiscounts } from "app/models/discounts.server";
+import { createDiscount, getDiscounts } from "app/services/discounts/discounts.server";
 import {
   DiscountMethod,
   DiscountType,

@@ -24,7 +24,7 @@ import { useMetafieldForm } from "app/hooks/useMetafieldForm";
 import {
   getProductMetafields,
   setMetafields,
-} from "app/models/metafields.server";
+} from "app/services/metafields/metafields.server";
 
 interface ActionData {
   success?: boolean;
