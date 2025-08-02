@@ -14,7 +14,6 @@ import {
   Banner,
   Modal,
   Thumbnail,
-  Code,
   Tabs,
   Box,
   Divider,
@@ -328,9 +327,15 @@ export default function SectionDetail() {
               onSelect={setSelectedTab}
             />
             
-            <Code>
-              {getCodeContent()}
-            </Code>
+            <Box 
+              padding="400" 
+              background="bg-surface-secondary" 
+              borderRadius="200"
+            >
+              <Text as="pre" fontFamily="mono">
+                {getCodeContent()}
+              </Text>
+            </Box>
           </BlockStack>
         </Modal.Section>
       </Modal>
