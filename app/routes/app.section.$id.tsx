@@ -20,7 +20,7 @@ import {
   Divider,
   DataTable,
 } from "@shopify/polaris";
-import { DownloadIcon, ViewIcon, CodeIcon } from "@shopify/polaris-icons";
+import { ArrowDownIcon, ViewIcon, CodeIcon } from "@shopify/polaris-icons";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { useState, useCallback } from "react";
 
@@ -214,7 +214,7 @@ export default function SectionDetail() {
                   {isPreview && (
                     <Button
                       variant="primary"
-                      icon={DownloadIcon}
+                      icon={ArrowDownIcon}
                       onClick={() => window.close()}
                     >
                       Close Preview
@@ -275,7 +275,7 @@ export default function SectionDetail() {
                             variant="primary"
                             submit
                             disabled={!selectedTheme}
-                            icon={DownloadIcon}
+                            icon={ArrowDownIcon}
                           >
                             Install Free Section
                           </Button>
