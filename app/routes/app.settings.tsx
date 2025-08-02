@@ -16,8 +16,7 @@ import { authenticate } from "../lib/shopify.server";
 import { useLoaderData } from "@remix-run/react";
 import { getYearlyPrice, LoaderData } from "app/utils/billing";
 import { DomainLandingPageIcon, OutgoingIcon } from "@shopify/polaris-icons";
-import { CancelSubscriptionButton } from "app/components/Features/Billing/Reccuring/CancelPlanButton";
-import { BillingActivity } from "app/components/Features/Billing/Reccuring/BillingActivity";
+
 import prisma from "app/lib/db.server";
 import { UserActivity } from "@prisma/client";
 import {
@@ -385,28 +384,33 @@ export default function SettingsPage() {
                 />
 
                 <InlineStack align="end" gap="300">
-                  {currentPlan && currentSubscription && (
-                    <CancelSubscriptionButton
-                      subscriptionId={currentSubscription.id}
-                      shopName={shopName}
-                    />
-                  )}
-                  <Link url="/app/billing">
-                    <Button variant="primary">
-                      {currentPlan ? "Change Plan" : "Choose Plan"}
-                    </Button>
-                  </Link>
+                  <Text variant="bodyMd" tone="subdued">
+                    This section store is completely free! ✨
+                  </Text>
                 </InlineStack>
               </BlockStack>
             </Card>
           </Layout.AnnotatedSection>
 
           <Layout.AnnotatedSection
-            id="billingActivity"
-            title="Billing Activity"
-            description="View your recent billing transactions and subscription history."
+            id="appInfo"
+            title="App Information"
+            description="This app is 100% free for all merchants to use."
           >
-            <BillingActivity activities={activities} />
+            <Card>
+              <BlockStack gap="400">
+                <Text variant="headingMd" as="h3">
+                  About Shopfessor Section Store
+                </Text>
+                <Text variant="bodyMd">
+                  Shopfessor Section Store provides free Shopify theme sections for all merchants. 
+                  Browse, preview, and install sections directly to your theme without any cost.
+                </Text>
+                <Text variant="bodyMd" tone="subdued">
+                  All sections are completely free and will always remain free.
+                </Text>
+              </BlockStack>
+            </Card>
           </Layout.AnnotatedSection>
         </Layout.Section>
       </Layout>
