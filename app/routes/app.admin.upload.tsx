@@ -11,7 +11,6 @@ import {
   Text,
   TextField,
   Select,
-  TextArea,
   Banner,
   DropZone,
   Tag,
@@ -201,13 +200,14 @@ export default function UploadSection() {
                     />
                   </FormLayout.Group>
 
-                  <TextArea
+                  <TextField
                     label="Description"
                     value={formData.description}
                     onChange={(value) => handleFormChange("description", value)}
                     placeholder="Describe what this section does and how to use it..."
                     autoComplete="off"
                     name="description"
+                    multiline={4}
                   />
 
                   {/* Tags */}

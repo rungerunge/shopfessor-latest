@@ -14,7 +14,6 @@ import {
   Button,
   SkeletonPage,
   SkeletonBodyText,
-  SkeletonDisplayText,
   InlineStack,
 } from "@shopify/polaris";
 import { useState, useCallback, useEffect } from "react";
@@ -131,7 +130,7 @@ export default function MetafieldsManage() {
       <SkeletonPage primaryAction>
         <Layout>
           <Layout.Section>
-            <SkeletonDisplayText size="small" />
+                          <SkeletonBodyText lines={1} />
             <SkeletonBodyText lines={5} />
           </Layout.Section>
         </Layout>

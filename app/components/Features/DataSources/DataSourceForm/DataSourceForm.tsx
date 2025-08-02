@@ -8,7 +8,6 @@ import {
   DropZone,
   Thumbnail,
   Banner,
-  LegacyCard,
   Tabs,
   Box,
   Icon,
@@ -242,9 +241,9 @@ export function DataSourceForm({
           Add New Data Source
         </Text>
 
-        <LegacyCard>
+        <Card>
           <Tabs tabs={tabs} selected={selectedTab} onSelect={onTabChange}>
-            <LegacyCard.Section>
+            <div style={{ padding: "16px" }}>
               <BlockStack gap="400">
                 <div style={{ height: "140px" }}>{renderTabContent()}</div>
 
@@ -260,9 +259,9 @@ export function DataSourceForm({
                   </Button>
                 </InlineStack>
               </BlockStack>
-            </LegacyCard.Section>
+            </div>
           </Tabs>
-        </LegacyCard>
+        </Card>
       </BlockStack>
     </Card>
   );

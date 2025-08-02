@@ -17,7 +17,7 @@ import {
   Button,
   SkeletonPage,
   SkeletonBodyText,
-  SkeletonDisplayText,
+
   Grid,
   InlineStack,
   Card,
@@ -152,7 +152,7 @@ export default function DiscountsManage() {
         <Layout>
           <Layout.Section>
             <Card>
-              <SkeletonDisplayText size="small" />
+              <SkeletonBodyText lines={1} />
               <SkeletonBodyText lines={5} />
             </Card>
           </Layout.Section>
