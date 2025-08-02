@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import { v4 as uuidv4 } from "uuid";
 import mime from "mime-types";
 import path from "path";
-import { uploadToS3 } from "app/lib/s3.server";
+import { uploadToRailway } from "app/lib/storage.server";
 import logger from "app/utils/logger";
 import fetch from "node-fetch";
 
@@ -31,15 +31,13 @@ export async function saveUploadedFile(
   filename: string,
   contentType?: string,
 ): Promise<string> {
-  const ext =
-    mime.extension(mime.lookup(filename) || contentType || "bin") ||
-    path.extname(filename);
-  const uniqueFilename = `${uuidv4()}.${ext}`;
-  const s3Key = `uploads/${uniqueFilename}`;
-
-  return uploadToS3(
+  // Determine folder based on file type
+  const folder = contentType?.startsWith("image/") ? "images" : "sections";
+  
+  return uploadToRailway(
     buffer,
-    s3Key,
+    filename,
     contentType || mime.lookup(filename) || "application/octet-stream",
+    folder
   );
 }

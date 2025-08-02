@@ -37,6 +37,11 @@ railway add postgresql
 railway add redis
 ```
 
+#### Persistent Volume (for file storage)
+- Railway will automatically create the volume based on `railway.json`
+- Files will be stored in `/app/uploads` directory
+- This replaces AWS S3 for simpler deployment
+
 ### 3. Configure Environment Variables
 
 In Railway dashboard → Settings → Variables, add:
@@ -49,18 +54,10 @@ SHOPIFY_API_SECRET=your_shopify_api_secret
 SHOPIFY_APP_URL=https://shopify-section-store.up.railway.app
 SHOPIFY_SCOPES=read_themes,write_themes,read_content,write_content
 
-# AWS S3 Configuration
-S3_ACCESS_KEY_ID=your_aws_access_key
-S3_SECRET_ACCESS_KEY=your_aws_secret_key
-S3_REGION=us-east-1
-S3_BUCKET=section-store-prod
-S3_USE_PATH_STYLE_ENDPOINT=false
-S3_URL=https://s3.us-east-1.amazonaws.com/section-store-prod
-
 # Application Settings
 NODE_ENV=production
 MAX_FILE_SIZE=52428800
-UPLOAD_DIR=./uploads
+UPLOAD_DIR=/app/uploads
 ```
 
 #### Auto-Generated Variables (Railway provides these)
