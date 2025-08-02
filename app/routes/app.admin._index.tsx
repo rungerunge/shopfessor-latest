@@ -14,7 +14,7 @@ import {
   EmptyState,
   Grid,
 } from "@shopify/polaris";
-import { PlusIcon, ViewIcon, AnalyticsIcon } from "@shopify/polaris-icons";
+import { PlusIcon, ViewIcon, ChartVerticalIcon } from "@shopify/polaris-icons";
 import { TitleBar } from "@shopify/app-bridge-react";
 
 import { authenticate } from "app/lib/shopify.server";
@@ -193,7 +193,7 @@ export default function AdminDashboard() {
                 </Button>
 
                 <Button
-                  icon={AnalyticsIcon}
+                  icon={ChartVerticalIcon}
                   as={Link}
                   to="/app/admin/categories"
                 >
