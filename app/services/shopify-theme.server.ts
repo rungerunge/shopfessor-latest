@@ -1,4 +1,4 @@
-import { GraphqlQueryError } from "@shopify/shopify-app-api";
+// GraphqlQueryError import removed - handling errors differently
 import logger from "app/utils/logger";
 
 export interface ShopifyTheme {
@@ -55,7 +55,8 @@ export class ShopifyThemeService {
       const data = await response.json();
       
       if (data.errors) {
-        throw new GraphqlQueryError(data.errors);
+        logger.error("GraphQL errors in theme query", data.errors);
+        throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`);
       }
 
       return data.data.themes.edges.map((edge: any) => edge.node);
