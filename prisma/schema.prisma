@@ -14,49 +14,13 @@ enum Role {
   SUPER_ADMIN
 }
 
-enum PurchaseStatus {
+enum InstallStatus {
   PENDING
-  ACTIVE
-  CANCELLED
-  DECLINED
-  EXPIRED
-}
-
-enum SubscriptionStatus {
-  ACTIVE
-  CANCELLED
-  PAST_DUE
-  EXPIRED
-  TRIAL
-  FROZEN
-}
-
-enum BillingInterval {
-  MONTHLY
-  ANNUAL
-  EVERY_30_DAYS
-}
-
-enum CouponType {
-  FIXED
-  PERCENTAGE
-}
-
-enum DocumentStatus {
-  UPLOADED
-  PROCESSING
-  PROCESSED
+  SUCCESS
   FAILED
 }
 
-enum FileType {
-  PDF
-  DOCX
-  TXT
-  XLSX
-  CSV
-}
-
+// Basic User model (kept from boilerplate)
 model User {
   id              String    @id @default(uuid())
   email           String    @unique
@@ -76,6 +40,7 @@ model User {
   @@map("users")
 }
 
+// Shopify Session model (kept from boilerplate for OAuth)
 model Session {
   id            String    @id @default(uuid())
   shop          String
@@ -106,6 +71,7 @@ model Session {
   @@map("sessions")
 }
 
+// Shop model (simplified from boilerplate)
 model Shop {
   id        String   @id @default(uuid())
   shop      String   @unique
@@ -119,348 +85,62 @@ model Shop {
   userId String
 
   // Relations
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sessions         Session[]
-  subscriptions    Subscription[]
-  oneTimePurchases OneTimePurchase[]
-  usageCharges     UsageCharge[]
-  userActivities   UserActivity[]
-  document         Document[]
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions      Session[]
+  installations Installation[]
 
   @@index([userId])
   @@index([shop, isActive])
   @@map("shops")
 }
 
-model Plan {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String
-  features    String[]
+// Section Store Models
 
-  // One-time pricing
-  oneTimePrice Decimal? @db.Decimal(10, 2)
-
-  // Subscription pricing
-  monthlyPrice   Decimal? @db.Decimal(10, 2)
-  yearlyPrice    Decimal? @db.Decimal(10, 2)
-  yearlyDiscount Decimal? @db.Decimal(10, 2) // Percentage
-
-  // Usage-based pricing
-  usagePrice Decimal? @db.Decimal(10, 4) // Per unit price
-  usageCap   Decimal? @db.Decimal(10, 2) // Maximum charge
-  usageTerms String? // Description of usage terms
-
-  isFeatured Boolean  @default(false)
-  isFree     Boolean  @default(false)
-  trialDays  Int      @default(0)
-  credits    Int?
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // Relations
-  subscriptions    Subscription[]
-  oneTimePurchases OneTimePurchase[]
-  usageCharges     UsageCharge[]
-
-  @@map("plans")
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  icon      String?
+  order     Int       @default(0)
+  isActive  Boolean   @default(true)
+  sections  Section[]
+  createdAt DateTime  @default(now())
+  
+  @@map("categories")
 }
 
-// One-time purchases (AppPurchaseOneTime in GraphQL)
-model OneTimePurchase {
-  id       String         @id @default(uuid())
-  name     String
-  status   PurchaseStatus @default(PENDING)
-  price    Decimal        @db.Decimal(10, 2)
-  currency String         @default("USD")
-
-  // Shopify IDs
-  shopifyId String? @unique // For GraphQL AppPurchaseOneTime.id
-
-  isTest      Boolean   @default(false)
-  activatedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  // Foreign Keys
-
-  shopId String
-  planId String?
-
-  // Relations
-  shop Shop  @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  plan Plan? @relation(fields: [planId], references: [id])
-
-  @@index([status])
-  @@index([shopId])
-  @@map("one_time_purchases")
+model Section {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    Category @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  tags        String[]
+  liquidCode  String   @db.Text
+  cssCode     String?  @db.Text
+  jsCode      String?  @db.Text
+  schema      Json?
+  previewUrl  String?
+  thumbnailUrl String?
+  downloads   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  installations Installation[]
+  @@map("sections")
 }
 
-// Recurring subscriptions (AppSubscription in GraphQL)
-model Subscription {
-  id     String             @id @default(uuid())
-  name   String
-  status SubscriptionStatus @default(TRIAL)
-
-  // Pricing
-  price    Decimal         @db.Decimal(10, 2)
-  currency String          @default("USD")
-  interval BillingInterval @default(MONTHLY)
-
-  // Trial
-  trialDays   Int?
-  trialEndsAt DateTime?
-
-  // Billing periods
-  currentPeriodStart DateTime  @default(now())
-  currentPeriodEnd   DateTime?
-
-  // Shopify IDs
-  shopifyId String? @unique // For GraphQL AppSubscription.id
-
-  isTest    Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Foreign Keys
-
-  shopId String
-  planId String?
-
-  // Relations
-  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  plan         Plan?         @relation(fields: [planId], references: [id])
-  usageCharges UsageCharge[]
-
-  @@index([status])
-  @@index([shopId])
-  @@index([currentPeriodEnd])
-  @@map("subscriptions")
-}
-
-// Usage-based charges (AppUsageRecord in GraphQL)
-model UsageCharge {
-  id          String  @id @default(uuid())
-  description String
-  price       Decimal @db.Decimal(10, 2)
-  quantity    Int     @default(1)
-  currency    String  @default("USD")
-
-  // Shopify IDs
-  shopifyId String? @unique // For GraphQL AppUsageRecord.id
-
-  isTest    Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Foreign Keys
-  shopId         String
-  planId         String? // Nullable - for standalone usage charges not tied to plans
-  subscriptionId String? // Usage charges can be standalone or tied to subscriptions
-
-  // Relations
-  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  plan         Plan?         @relation(fields: [planId], references: [id])
-  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
-
-  @@index([shopId])
-  @@index([subscriptionId])
-  @@index([planId])
-  @@index([createdAt])
-  @@map("usage_charges")
-}
-
-model Coupon {
-  id              String     @id @default(uuid())
-  name            String
-  code            String     @unique
-  type            CouponType
-  discountAmount  Decimal?   @db.Decimal(10, 2)
-  percentage      Decimal?   @db.Decimal(5, 2)
-  usageLimit      Int?
-  shopUsageLimit  Int?       @default(1)
-  expiresAt       DateTime?
-  applicablePlans String[]   @default([])
-
-  // Billing type compatibility
-  allowOneTime      Boolean @default(true)
-  allowSubscription Boolean @default(true)
-  allowUsageBased   Boolean @default(false)
-
-  yearlyApplicable Boolean  @default(false)
-  active           Boolean  @default(true)
-  durationLimit    Int      @default(1)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  @@index([code])
-  @@index([active, expiresAt])
-  @@map("coupons")
-}
-
-model UserActivity {
-  id           String   @id @default(uuid())
-  activityType String
-  title        String
-  details      String
-  ipAddress    String?
-  userAgent    String?
-  location     String?
-  domain       String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Relations
-  shop Shop @relation(fields: [domain], references: [shop])
-
-  @@index([domain])
-  @@index([activityType])
-  @@index([createdAt])
-  @@map("user_activities")
-}
-
-model CustomerToken {
-  id             String   @id @default(uuid())
-  conversationId String
-  accessToken    String
-  refreshToken   String?
-  expiresAt      DateTime
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relations
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  @@index([conversationId])
-  @@index([expiresAt])
-  @@map("customer_tokens")
-}
-
-model CodeVerifier {
-  id        String   @id @default(uuid())
-  state     String   @unique
-  verifier  String
-  createdAt DateTime @default(now())
-  expiresAt DateTime
-
-  @@index([state])
-  @@index([expiresAt])
-  @@map("code_verifiers")
-}
-
-model Conversation {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  messages       Message[]
-  customerTokens CustomerToken[]
-  accountUrl     CustomerAccountUrl?
-
-  @@map("conversations")
-}
-
-model Message {
-  id             String   @id @default(uuid())
-  conversationId String
-  role           String // "user" or "assistant"
-  content        String
-  createdAt      DateTime @default(now())
-
-  // Relations
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  @@index([conversationId])
-  @@index([createdAt])
-  @@map("messages")
-}
-
-model CustomerAccountUrl {
-  id             String   @id @default(uuid())
-  conversationId String   @unique
-  url            String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relations
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  @@index([conversationId])
-  @@map("customer_account_urls")
-}
-
-model Document {
-  id           String   @id @default(uuid())
-  filename     String
-  originalName String
-  fileUrl      String
-  fileSize     Int
-  mimeType     String
-  fileType     FileType
-
-  // Processing
-  status DocumentStatus @default(UPLOADED)
-
-  // AI Processing
-  extractedText String?  @db.Text
-  aiSummary     String?  @db.Text
-  keywords      String[] @default([])
-
-  // Metadata
-  metadata Json?
-  tags     String[] @default([])
-
-  contentType String
-  s3Key       String? // S3 object key
-  s3Url       String? // S3 URL
-
-  // Processing metadata
-  totalChunks  Int?
-  processedAt  DateTime?
-  errorMessage String?
-
-  // Pinecone metadata
-  pineconeIds String[] // Array of Pinecone vector IDs
-  namespace   String? // Pinecone namespace
-
-  // Audit
-  uploadedBy String? // User ID who uploaded
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // Foreign Keys
-  shopId String
-
-  // Relations
-  shop   Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  chunks DocumentChunk[]
-
-  @@index([shopId, status])
-  @@index([fileType])
-  @@map("documents")
-}
-
-model DocumentChunk {
-  id         String @id @default(uuid())
-  documentId String
-  chunkText  String @db.Text
-  chunkIndex Int
-  tokenCount Int
-
-  // Pinecone reference
-  pineconeId String? // Pinecone vector ID
-
-  // Metadata for retrieval
-  startChar  Int?
-  endChar    Int?
-  pageNumber Int?
-
-  createdAt DateTime @default(now())
-
-  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-
-  @@index([documentId, chunkIndex])
-  @@map("document_chunks")
+model Installation {
+  id        String        @id @default(cuid())
+  shopId    String
+  sectionId String
+  themeId   String
+  status    InstallStatus
+  section   Section       @relation(fields: [sectionId], references: [id])
+  shop      Shop          @relation(fields: [shopId], references: [id])
+  createdAt DateTime      @default(now())
+  
+  @@unique([shopId, sectionId, themeId])
+  @@map("installations")
 }
