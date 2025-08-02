@@ -13,7 +13,7 @@
 import { queueManager } from "../queue-manager.server";
 import { processEmailJob } from "app/queues/processors/email.server";
 import { processImageJob } from "app/queues/processors/image.server";
-import { processDocumentJobHandler } from "app/queues/processors/document.server";
+// Document processing removed - AI features disabled
 
 // Initialize workers (call this in your server startup)
 export function initializeWorkers() {
@@ -23,8 +23,7 @@ export function initializeWorkers() {
   // Image processing worker
   queueManager.createWorker("process-image", processImageJob);
 
-  // Document processing worker
-  queueManager.createWorker("process-document", processDocumentJobHandler);
+  // Document processing removed - AI features disabled
 
   // Report generation worker
   queueManager.createWorker("generate-report", async (job) => {
